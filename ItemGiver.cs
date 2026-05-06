@@ -1,7 +1,6 @@
 using MelonLoader;
 using UnityEngine;
 using Il2Cpp;
-using System.Reflection;
 
 namespace SiksSevenMenu
 {
@@ -26,6 +25,7 @@ namespace SiksSevenMenu
         {
             if (!Visible) return;
 
+            // Перетаскивание за заголовок
             Rect headerRect = new Rect(windowRect.x, windowRect.y, windowRect.width, 25);
             Event e = Event.current;
             if (e.type == EventType.MouseDown && headerRect.Contains(e.mousePosition))
@@ -62,58 +62,58 @@ namespace SiksSevenMenu
 
         private void GiveItem(string itemName)
         {
-            // Найти префаб предмета через Resources
-            Item targetPrefab = null;
-            foreach (var it in Resources.FindObjectsOfTypeAll<Item>())
+            // Ищем префаб как GameObject (в Балди предметы — префабы с компонентом Item)
+            GameObject prefab = null;
+            foreach (var go in Resources.FindObjectsOfTypeAll<GameObject>())
             {
-                if (it.name.Equals(itemName, System.StringComparison.OrdinalIgnoreCase))
+                if (go.name.Equals(itemName, System.StringComparison.OrdinalIgnoreCase))
                 {
-                    targetPrefab = it;
+                    prefab = go;
                     break;
                 }
             }
-            if (targetPrefab == null)
+            if (prefab == null)
             {
                 MelonLogger.Error("Предмет не найден: " + itemName);
                 return;
             }
 
-            Item newItem = Object.Instantiate(targetPrefab);
+            // Создаём экземпляр
+            GameObject newObj = Object.Instantiate(prefab);
+            ItemScript itemScr = newObj.GetComponent<ItemScript>();
+            if (itemScr == null)
+            {
+                MelonLogger.Error("ItemScript не найден на предмете: " + itemName);
+                return;
+            }
 
+            // Ищем инвентарь игрока
             GameObject player = GameObject.FindGameObjectWithTag("Player");
             if (player == null) player = GameObject.Find("Player");
             if (player == null)
             {
-                MelonLogger.Error("Игрок не найден — предмет создан на сцене.");
+                MelonLogger.Error("Игрок не найден — предмет создан в мире.");
                 return;
             }
 
-            // Попытаемся добавить в InventorySlotScript через рефлексию
             InventorySlotScript invSlot = player.GetComponent<InventorySlotScript>();
             if (invSlot != null)
             {
-                System.Type t = invSlot.GetType();
-                MethodInfo addMethod = t.GetMethod("AddItem", new System.Type[] { typeof(Item) });
+                // Присваиваем инвентарный скрипт предмету
+                itemScr._inventoryScript = invSlot;
+
+                // Пытаемся добавить через метод AddItem (рефлексия)
+                var addMethod = invSlot.GetType().GetMethod("AddItem", new System.Type[] { typeof(ItemScript) });
                 if (addMethod != null)
-                {
-                    addMethod.Invoke(invSlot, new object[] { newItem });
-                    MelonLogger.Msg($"Предмет {itemName} добавлен в инвентарь.");
-                }
+                    addMethod.Invoke(invSlot, new object[] { itemScr });
                 else
-                {
-                    MelonLogger.Warning("Метод AddItem не найден. Пробуем альтернативу.");
-                    // Альтернатива: напрямую задаём _inventoryScript и кладём в слот
-                    ItemScript its = newItem.GetComponent<ItemScript>();
-                    if (its != null)
-                    {
-                        its._inventoryScript = player.GetComponent<MonoBehaviour>(); // Cast if needed
-                        MelonLogger.Msg($"Предмет {itemName} помещён в инвентарь через _inventoryScript.");
-                    }
-                }
+                    MelonLogger.Warning("AddItem не найден, предмет привязан к инвентарю, но не добавлен. Возможно, нужен ручной вызов.");
+                
+                MelonLogger.Msg($"Предмет {itemName} выдан.");
             }
             else
             {
-                MelonLogger.Warning("InventorySlotScript не обнаружен. Предмет остался в мире.");
+                MelonLogger.Warning("InventorySlotScript не найден — предмет лежит в мире.");
             }
         }
     }
