@@ -28,9 +28,12 @@
     <Reference Include="UnityEngine.PhysicsModule">
       <HintPath>Libs\UnityEngine.PhysicsModule.dll</HintPath>
     </Reference>
-    <!-- Для доступа к скриптам самой игры -->
     <Reference Include="Assembly-CSharp">
       <HintPath>Libs\Assembly-CSharp.dll</HintPath>
+    </Reference>
+    <!-- Fusion Network (для NetworkBehaviour) -->
+    <Reference Include="Il2CppFusion.Runtime">
+      <HintPath>Libs\Il2CppFusion.Runtime.dll</HintPath>
     </Reference>
   </ItemGroup>
 </Project>
