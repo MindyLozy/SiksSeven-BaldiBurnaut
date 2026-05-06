@@ -1,8 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net472</TargetFramework>
-    <AssemblyName>SiksSevenMod</AssemblyName>
-    <RootNamespace>SiksSevenMod</RootNamespace>
+    <AssemblyName>SiksSevenMenu</AssemblyName>
+    <RootNamespace>SiksSevenMenu</RootNamespace>
     <PlatformTarget>x64</PlatformTarget>
   </PropertyGroup>
 
@@ -18,6 +18,9 @@
     </Reference>
     <Reference Include="UnityEngine.InputLegacyModule">
       <HintPath>Libs\UnityEngine.InputLegacyModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.PhysicsModule">
+      <HintPath>Libs\UnityEngine.PhysicsModule.dll</HintPath>
     </Reference>
   </ItemGroup>
 </Project>
