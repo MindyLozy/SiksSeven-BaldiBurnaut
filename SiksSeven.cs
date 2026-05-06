@@ -2,7 +2,7 @@ using MelonLoader;
 using UnityEngine;
 using Il2Cpp;
 
-[assembly: MelonInfo(typeof(SiksSevenMenu.Main), "SiksSeven Menu", "1.3.0", "LOLWorking")]
+[assembly: MelonInfo(typeof(SiksSevenMenu.Main), "SiksSeven Menu", "1.3.1", "eni")]
 [assembly: MelonGame(null, null)]
 
 namespace SiksSevenMenu
@@ -36,15 +36,13 @@ namespace SiksSevenMenu
         private Rigidbody playerRB;
         private PlayerPrototypeScript playerPrototype;
 
-        // back gravity after fly
         private float savedGravity = 9.81f;
-
         private CursorLockMode originalLockMode;
         private ItemGiverWindow itemGiverWindow;
 
         public override void OnInitializeMelon()
         {
-            LoggerInstance.Msg("SiksSeven v1.1.0: True");
+            LoggerInstance.Msg("SiksSeven v1.1.5: TRUE ");
             noclipInput = noclipSpeed.ToString("F1");
             speedInput = speedHackMultiplier.ToString("F1");
             gravityInput = "9.81";
@@ -67,6 +65,7 @@ namespace SiksSevenMenu
             }
             if (!playerCached) return;
 
+            // keys
             if (Input.GetKeyDown(KeyCode.V))
             {
                 noclipEnabled = !noclipEnabled;
@@ -138,15 +137,19 @@ namespace SiksSevenMenu
                     playerObj.transform.position += dir * noclipSpeed * Time.unscaledDeltaTime;
                 }
             }
-            // Fly (fix)
+            // Fly 
             else if (flyEnabled && playerObj != null)
             {
                 if (fpsController != null && fpsController.enabled) fpsController.enabled = false;
-                if (playerCC != null) playerCC.enabled = true;    // коллизии
-                if (playerCollider != null) playerCollider.enabled = true;
-                if (playerRB != null) playerRB.useGravity = false;
+                if (playerCollider != null) playerCollider.enabled = true;   // collisions
+                if (playerCC != null) playerCC.enabled = true;
+                if (playerRB != null)
+                {
+                    playerRB.useGravity = false;
+                    playerRB.isKinematic = true;   // xd
+                }
 
-                // null
+                // gravity 0
                 if (playerPrototype != null)
                     playerPrototype.MainGravity = 0f;
 
@@ -165,11 +168,11 @@ namespace SiksSevenMenu
                 if (dir.magnitude > 0.01f)
                 {
                     dir.Normalize();
-                    Vector3 motion = dir * flySpeed * Time.unscaledDeltaTime;
+                    Vector3 motion = dir * flySpeed * Time.deltaTime;   // delta time
                     if (playerCC != null)
                         playerCC.Move(motion);
                     else
-                        playerObj.transform.position += motion; // fallback
+                        playerObj.transform.position += motion;
                 }
             }
             // SpeedHack
@@ -195,7 +198,7 @@ namespace SiksSevenMenu
         {
             if (menuVisible)
             {
-                float mw = 320f, mh = 560f;   // уменьшили высоту без Spray
+                float mw = 320f, mh = 560f;
                 float mx = 20f, my = 20f;
 
                 GUI.Box(new Rect(mx, my, mw, mh), "");
@@ -249,7 +252,7 @@ namespace SiksSevenMenu
                     {
                         playerPrototype.MainGravity = v;
                         gravityInput = v.ToString("F2");
-                        savedGravity = v;   // помним, что установил игрок
+                        savedGravity = v;
                     }
                     else gravityInput = (playerPrototype != null ? playerPrototype.MainGravity : 9.81f).ToString("F2");
                 }
@@ -341,7 +344,7 @@ namespace SiksSevenMenu
                 playerRB = playerObj.GetComponent<Rigidbody>();
                 playerPrototype = playerObj.GetComponent<PlayerPrototypeScript>();
                 if (playerPrototype != null)
-                    savedGravity = playerPrototype.MainGravity;  // запомним гравитацию по умолчанию
+                    savedGravity = playerPrototype.MainGravity;
                 playerCached = true;
                 LoggerInstance.Msg("Игрок найден: " + playerObj.name);
             }
@@ -371,22 +374,30 @@ namespace SiksSevenMenu
             {
                 if (playerPrototype != null)
                 {
-                    savedGravity = playerPrototype.MainGravity;   // на случай, если ещё не сохранили
+                    savedGravity = playerPrototype.MainGravity;
                     playerPrototype.MainGravity = 0f;
                 }
                 if (fpsController != null) fpsController.enabled = false;
                 if (playerCC != null) playerCC.enabled = true;
                 if (playerCollider != null) playerCollider.enabled = true;
-                if (playerRB != null) playerRB.useGravity = false;
+                if (playerRB != null)
+                {
+                    playerRB.useGravity = false;
+                    playerRB.isKinematic = true;
+                }
             }
             else
             {
                 if (playerPrototype != null)
-                    playerPrototype.MainGravity = savedGravity;   // возвращаем ту гравитацию, что была
+                    playerPrototype.MainGravity = savedGravity;
                 if (fpsController != null) fpsController.enabled = true;
                 if (playerCC != null) playerCC.enabled = true;
                 if (playerCollider != null) playerCollider.enabled = true;
-                if (playerRB != null) playerRB.useGravity = true;
+                if (playerRB != null)
+                {
+                    playerRB.useGravity = true;
+                    playerRB.isKinematic = false;
+                }
             }
         }
 
@@ -412,7 +423,7 @@ namespace SiksSevenMenu
                 if (fpsController != null) fpsController.enabled = true;
                 if (playerCC != null) playerCC.enabled = true;
                 if (playerCollider != null) playerCollider.enabled = true;
-                if (playerRB != null) playerRB.useGravity = true;
+                if (playerRB != null) { playerRB.useGravity = true; playerRB.isKinematic = false; }
                 if (playerPrototype != null)
                     playerPrototype.MainGravity = savedGravity;
             }
