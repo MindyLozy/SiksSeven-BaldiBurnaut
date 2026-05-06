@@ -1,9 +1,8 @@
 using MelonLoader;
 using UnityEngine;
 using Il2Cpp;
-using System.Reflection;   // <-- добавили для поиска метода
 
-[assembly: MelonInfo(typeof(SiksSevenMenu.Main), "SiksSeven Menu", "1.2.1", "eni")]
+[assembly: MelonInfo(typeof(SiksSevenMenu.Main), "SiksSeven Menu", "1.3.0", "LOLWorking")]
 [assembly: MelonGame(null, null)]
 
 namespace SiksSevenMenu
@@ -15,7 +14,6 @@ namespace SiksSevenMenu
         private bool menuVisible = false;
         private bool showItemGiver = false;
         private bool flyEnabled = false;
-        private bool sprayEnabled = false;
 
         private float noclipSpeed = 10f;
         private float speedHackMultiplier = 2f;
@@ -37,19 +35,22 @@ namespace SiksSevenMenu
         private CharacterController playerCC;
         private Rigidbody playerRB;
         private PlayerPrototypeScript playerPrototype;
-        private BsodaSprayScript sprayScript;
+
+        // back gravity after fly
+        private float savedGravity = 9.81f;
 
         private CursorLockMode originalLockMode;
         private ItemGiverWindow itemGiverWindow;
 
         public override void OnInitializeMelon()
         {
-            LoggerInstance.Msg("SiksSeven Menu v1.2.1 инициализирован. Home — меню, Insert — Item Giver, V — Noclip, X — SpeedHack, Z — Fly, B — Spray BSODA's (если чекбокс включен).");
+            LoggerInstance.Msg("SiksSeven v1.1.0: True");
             noclipInput = noclipSpeed.ToString("F1");
             speedInput = speedHackMultiplier.ToString("F1");
             gravityInput = "9.81";
             jumpInput = "2";
             flySpeedInput = flySpeed.ToString("F1");
+
             itemGiverWindow = new ItemGiverWindow();
         }
 
@@ -85,7 +86,7 @@ namespace SiksSevenMenu
                 LoggerInstance.Msg($"Fly: {flyEnabled}");
                 ToggleFly(flyEnabled);
             }
-            if (Input.GetKeyDown(KeyCode.Home))
+            if (Input.GetKeyDown(KeyCode.F1))
             {
                 menuVisible = !menuVisible;
                 UpdateCursorState();
@@ -95,22 +96,6 @@ namespace SiksSevenMenu
                 showItemGiver = !showItemGiver;
                 itemGiverWindow.Visible = showItemGiver;
                 UpdateCursorState();
-            }
-
-            // BSODA спрей (рефлексия, чтобы не зависеть от точного имени метода)
-            if (sprayEnabled && Input.GetKeyDown(KeyCode.B) && sprayScript != null)
-            {
-                var sprayMethod = sprayScript.GetType().GetMethod("Spray", BindingFlags.Public | BindingFlags.Instance);
-                if (sprayMethod != null)
-                    sprayMethod.Invoke(sprayScript, null);
-                else
-                {
-                    var useMethod = sprayScript.GetType().GetMethod("Use", BindingFlags.Public | BindingFlags.Instance);
-                    if (useMethod != null)
-                        useMethod.Invoke(sprayScript, null);
-                    else
-                        MelonLogger.Warning("BsodaSprayScript не содержит ни 'Spray', ни 'Use'. Попробуй активировать вручную.");
-                }
             }
 
             if (infiniteStamina && playerPrototype != null)
@@ -127,19 +112,23 @@ namespace SiksSevenMenu
                         item._uses = 9999;
             }
 
+            // Noclip 
             if (noclipEnabled && playerObj != null)
             {
                 if (fpsController != null && fpsController.enabled) fpsController.enabled = false;
                 if (playerCC != null) playerCC.enabled = false;
                 if (playerRB != null) playerRB.useGravity = false;
                 if (playerCollider != null) playerCollider.enabled = false;
+
                 if (Camera.main == null) return;
+
                 float moveF = Input.GetKey(KeyCode.W) ? 1f : 0f;
                 float moveB = Input.GetKey(KeyCode.S) ? 1f : 0f;
                 float moveL = Input.GetKey(KeyCode.A) ? 1f : 0f;
                 float moveR = Input.GetKey(KeyCode.D) ? 1f : 0f;
                 float moveUp = Input.GetKey(KeyCode.Space) ? 1f : 0f;
                 float moveDown = Input.GetKey(KeyCode.LeftControl) ? 1f : 0f;
+
                 Vector3 dir = Camera.main.transform.forward * (moveF - moveB)
                             + Camera.main.transform.right * (moveR - moveL)
                             + Camera.main.transform.up * (moveUp - moveDown);
@@ -149,19 +138,27 @@ namespace SiksSevenMenu
                     playerObj.transform.position += dir * noclipSpeed * Time.unscaledDeltaTime;
                 }
             }
+            // Fly (fix)
             else if (flyEnabled && playerObj != null)
             {
                 if (fpsController != null && fpsController.enabled) fpsController.enabled = false;
-                if (playerCC != null) playerCC.enabled = true;
-                if (playerRB != null) playerRB.useGravity = false;
+                if (playerCC != null) playerCC.enabled = true;    // коллизии
                 if (playerCollider != null) playerCollider.enabled = true;
+                if (playerRB != null) playerRB.useGravity = false;
+
+                // null
+                if (playerPrototype != null)
+                    playerPrototype.MainGravity = 0f;
+
                 if (Camera.main == null) return;
+
                 float moveF = Input.GetKey(KeyCode.W) ? 1f : 0f;
                 float moveB = Input.GetKey(KeyCode.S) ? 1f : 0f;
                 float moveL = Input.GetKey(KeyCode.A) ? 1f : 0f;
                 float moveR = Input.GetKey(KeyCode.D) ? 1f : 0f;
                 float moveUp = Input.GetKey(KeyCode.Space) ? 1f : 0f;
                 float moveDown = Input.GetKey(KeyCode.LeftControl) ? 1f : 0f;
+
                 Vector3 dir = Camera.main.transform.forward * (moveF - moveB)
                             + Camera.main.transform.right * (moveR - moveL)
                             + Camera.main.transform.up * (moveUp - moveDown);
@@ -172,9 +169,10 @@ namespace SiksSevenMenu
                     if (playerCC != null)
                         playerCC.Move(motion);
                     else
-                        playerObj.transform.position += motion;
+                        playerObj.transform.position += motion; // fallback
                 }
             }
+            // SpeedHack
             else if (speedHackEnabled && playerObj != null)
             {
                 float moveH = Input.GetAxis("Horizontal");
@@ -197,8 +195,9 @@ namespace SiksSevenMenu
         {
             if (menuVisible)
             {
-                float mw = 320f, mh = 600f;
+                float mw = 320f, mh = 560f;   // уменьшили высоту без Spray
                 float mx = 20f, my = 20f;
+
                 GUI.Box(new Rect(mx, my, mw, mh), "");
                 GUI.Label(new Rect(mx + 10, my + 10, mw - 20, 30), "SiksSeven Menu");
 
@@ -250,6 +249,7 @@ namespace SiksSevenMenu
                     {
                         playerPrototype.MainGravity = v;
                         gravityInput = v.ToString("F2");
+                        savedGravity = v;   // помним, что установил игрок
                     }
                     else gravityInput = (playerPrototype != null ? playerPrototype.MainGravity : 9.81f).ToString("F2");
                 }
@@ -310,11 +310,6 @@ namespace SiksSevenMenu
                     }
                     else flySpeedInput = flySpeed.ToString("F1");
                 }
-                yOff += 40;
-
-                bool newSpray = GUI.Toggle(new Rect(mx + 10, my + yOff, 280, 20), sprayEnabled, "Spray BSODA's (press B)");
-                if (newSpray != sprayEnabled)
-                    sprayEnabled = newSpray;
             }
 
             if (showItemGiver)
@@ -345,7 +340,8 @@ namespace SiksSevenMenu
                 playerCC = playerObj.GetComponent<CharacterController>();
                 playerRB = playerObj.GetComponent<Rigidbody>();
                 playerPrototype = playerObj.GetComponent<PlayerPrototypeScript>();
-                sprayScript = playerObj.GetComponent<BsodaSprayScript>();
+                if (playerPrototype != null)
+                    savedGravity = playerPrototype.MainGravity;  // запомним гравитацию по умолчанию
                 playerCached = true;
                 LoggerInstance.Msg("Игрок найден: " + playerObj.name);
             }
@@ -373,6 +369,11 @@ namespace SiksSevenMenu
         {
             if (enable)
             {
+                if (playerPrototype != null)
+                {
+                    savedGravity = playerPrototype.MainGravity;   // на случай, если ещё не сохранили
+                    playerPrototype.MainGravity = 0f;
+                }
                 if (fpsController != null) fpsController.enabled = false;
                 if (playerCC != null) playerCC.enabled = true;
                 if (playerCollider != null) playerCollider.enabled = true;
@@ -380,6 +381,8 @@ namespace SiksSevenMenu
             }
             else
             {
+                if (playerPrototype != null)
+                    playerPrototype.MainGravity = savedGravity;   // возвращаем ту гравитацию, что была
                 if (fpsController != null) fpsController.enabled = true;
                 if (playerCC != null) playerCC.enabled = true;
                 if (playerCollider != null) playerCollider.enabled = true;
@@ -410,6 +413,8 @@ namespace SiksSevenMenu
                 if (playerCC != null) playerCC.enabled = true;
                 if (playerCollider != null) playerCollider.enabled = true;
                 if (playerRB != null) playerRB.useGravity = true;
+                if (playerPrototype != null)
+                    playerPrototype.MainGravity = savedGravity;
             }
             Cursor.lockState = originalLockMode;
             Cursor.visible = true;
