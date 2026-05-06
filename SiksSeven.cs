@@ -1,10 +1,8 @@
 using MelonLoader;
 using UnityEngine;
 using Il2Cpp;
-using System;
-using System.Reflection;
 
-[assembly: MelonInfo(typeof(SiksSevenMenu.Main), "SiksSeven Menu", "1.5.1", "eni")]
+[assembly: MelonInfo(typeof(SiksSevenMenu.Main), "SiksSeven Menu", "1.6.0", "eni")]
 [assembly: MelonGame(null, null)]
 
 namespace SiksSevenMenu
@@ -45,95 +43,9 @@ namespace SiksSevenMenu
         private ItemGiverWindow itemGiverWindow;
         private SevenKickMenuWindow kickMenu;
 
-        // ---------- Photon-хелперы (рефлексия) ----------
-        private static Type photonNetworkType;
-        private static Type raiseEventOptionsType;
-        private static Type receiverGroupType;
-
-        private void InitPhotonReflection()
-        {
-            if (photonNetworkType != null) return;
-            photonNetworkType = Type.GetType("PhotonNetwork, Assembly-CSharp") ??
-                                Type.GetType("PhotonNetwork, Photon3Unity3D") ??
-                                Type.GetType("PhotonNetwork, Assembly-CSharp-firstpass");
-            if (photonNetworkType != null)
-            {
-                raiseEventOptionsType = Type.GetType("RaiseEventOptions, Assembly-CSharp") ??
-                                       Type.GetType("RaiseEventOptions, Photon3Unity3D") ??
-                                       Type.GetType("RaiseEventOptions, Assembly-CSharp-firstpass");
-                receiverGroupType = Type.GetType("ReceiverGroup, Assembly-CSharp") ??
-                                    Type.GetType("ReceiverGroup, Photon3Unity3D") ??
-                                    Type.GetType("ReceiverGroup, Assembly-CSharp-firstpass");
-                LoggerInstance.Msg("Photon типы найдены через рефлексию.");
-            }
-            else
-            {
-                LoggerInstance.Error("PhotonNetwork не найден. Seven Kick Menu не будет работать.");
-            }
-        }
-
-        private void SubscribeToPhotonEvent()
-        {
-            InitPhotonReflection();
-            if (photonNetworkType == null) return;
-            EventInfo eventInfo = photonNetworkType.GetEvent("OnEventCall", BindingFlags.Public | BindingFlags.Static);
-            if (eventInfo != null)
-            {
-                var handler = new Action<byte, object, int>(OnPhotonEvent);
-                Delegate del = Delegate.CreateDelegate(eventInfo.EventHandlerType, handler.Target, handler.Method);
-                eventInfo.AddEventHandler(null, del);
-            }
-        }
-
-        private void UnsubscribeFromPhotonEvent()
-        {
-            InitPhotonReflection();
-            if (photonNetworkType == null) return;
-            EventInfo eventInfo = photonNetworkType.GetEvent("OnEventCall", BindingFlags.Public | BindingFlags.Static);
-            if (eventInfo != null)
-            {
-                var handler = new Action<byte, object, int>(OnPhotonEvent);
-                Delegate del = Delegate.CreateDelegate(eventInfo.EventHandlerType, handler.Target, handler.Method);
-                eventInfo.RemoveEventHandler(null, del);
-            }
-        }
-
-        private void OnPhotonEvent(byte eventcode, object content, int senderid)
-        {
-            if (eventcode == 1) // Crash
-            {
-                for (int i = 0; i < 10; i++)
-                    photonNetworkType.GetMethod("LoadLevel").Invoke(null, new object[] { "Lose" });
-            }
-            else if (eventcode == 2) // Freeze
-            {
-                object[] args = content as object[];
-                if (args != null && args.Length > 0 && args[0] is bool frozen)
-                {
-                    if (frozen)
-                    {
-                        if (playerObj != null)
-                        {
-                            playerObj.transform.position = new Vector3(0, 100, 0);
-                            if (fpsController != null) fpsController.enabled = false;
-                            if (playerCC != null) playerCC.enabled = false;
-                        }
-                    }
-                    else
-                    {
-                        if (playerObj != null)
-                        {
-                            if (fpsController != null) fpsController.enabled = true;
-                            if (playerCC != null) playerCC.enabled = true;
-                        }
-                    }
-                }
-            }
-        }
-
         public override void OnInitializeMelon()
         {
-            LoggerInstance.Msg("SiksSeven Menu v1.5.1 инициализирован. Home — меню, Insert — Item Giver, V — Noclip, X — SpeedHack, Z — Fly, K — Seven Kick Menu.");
+            LoggerInstance.Msg("SiksSeven Menu v1.6.0 инициализирован. F1 — меню, F2 — Item Giver, F3 — Seven Kick Menu. V — Noclip, X — SpeedHack, Z — Fly.");
             noclipInput = noclipSpeed.ToString("F1");
             speedInput = speedHackMultiplier.ToString("F1");
             gravityInput = "9.81";
@@ -142,8 +54,6 @@ namespace SiksSevenMenu
 
             itemGiverWindow = new ItemGiverWindow();
             kickMenu = new SevenKickMenuWindow();
-
-            SubscribeToPhotonEvent();
         }
 
         public override void OnUpdate()
@@ -178,18 +88,18 @@ namespace SiksSevenMenu
                 LoggerInstance.Msg($"Fly: {flyEnabled}");
                 ToggleFly(flyEnabled);
             }
-            if (Input.GetKeyDown(KeyCode.Home))
+            if (Input.GetKeyDown(KeyCode.F1))
             {
                 menuVisible = !menuVisible;
                 UpdateCursorState();
             }
-            if (Input.GetKeyDown(KeyCode.Insert))
+            if (Input.GetKeyDown(KeyCode.F2))
             {
                 showItemGiver = !showItemGiver;
                 itemGiverWindow.Visible = showItemGiver;
                 UpdateCursorState();
             }
-            if (Input.GetKeyDown(KeyCode.K))
+            if (Input.GetKeyDown(KeyCode.F3))
             {
                 showKickMenu = !showKickMenu;
                 kickMenu.Visible = showKickMenu;
@@ -203,7 +113,7 @@ namespace SiksSevenMenu
             }
             if (infiniteItems)
             {
-                MonoBehaviour[] allMono = UnityEngine.Object.FindObjectsOfType<MonoBehaviour>();
+                MonoBehaviour[] allMono = Object.FindObjectsOfType<MonoBehaviour>();
                 foreach (var m in allMono)
                     if (m is ItemScript item)
                         item._uses = 9999;
@@ -379,7 +289,7 @@ namespace SiksSevenMenu
                 if (newItems != infiniteItems)
                 {
                     infiniteItems = newItems;
-                    MonoBehaviour[] allMono = UnityEngine.Object.FindObjectsOfType<MonoBehaviour>();
+                    MonoBehaviour[] allMono = Object.FindObjectsOfType<MonoBehaviour>();
                     foreach (var m in allMono)
                         if (m is ItemScript item)
                             item._uses = infiniteItems ? 9999 : 0;
@@ -417,7 +327,7 @@ namespace SiksSevenMenu
             if (playerObj == null) playerObj = GameObject.Find("Player");
             if (playerObj == null)
             {
-                CharacterController[] ccs = UnityEngine.Object.FindObjectsOfType<CharacterController>();
+                CharacterController[] ccs = Object.FindObjectsOfType<CharacterController>();
                 if (ccs.Length > 0) playerObj = ccs[0].gameObject;
             }
             if (playerObj != null)
@@ -510,7 +420,6 @@ namespace SiksSevenMenu
             }
             Cursor.lockState = originalLockMode;
             Cursor.visible = true;
-            UnsubscribeFromPhotonEvent();
         }
     }
 }
