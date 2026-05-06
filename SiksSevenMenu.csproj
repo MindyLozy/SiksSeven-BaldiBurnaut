@@ -8,16 +8,16 @@
 
   <ItemGroup>
     <Reference Include="MelonLoader">
-      <HintPath>..\MelonLoader\MelonLoader.dll</HintPath>
+      <HintPath>Libs\MelonLoader.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.CoreModule">
-      <HintPath>..\MelonLoader\Dependencies\UnityEngine.CoreModule.dll</HintPath>
+      <HintPath>Libs\UnityEngine.CoreModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.IMGUIModule">
-      <HintPath>..\MelonLoader\Dependencies\UnityEngine.IMGUIModule.dll</HintPath>
+      <HintPath>Libs\UnityEngine.IMGUIModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.InputLegacyModule">
-      <HintPath>..\MelonLoader\Dependencies\UnityEngine.InputLegacyModule.dll</HintPath>
+      <HintPath>Libs\UnityEngine.InputLegacyModule.dll</HintPath>
     </Reference>
   </ItemGroup>
 </Project>
