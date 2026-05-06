@@ -1,16 +1,17 @@
 using MelonLoader;
 using UnityEngine;
 using Il2Cpp;
-using Photon;
-using ExitGames.Client.Photon;  // для RaiseEventOptions, ReceiverGroup
+using System;
+using System.Reflection;
 
-[assembly: MelonInfo(typeof(SiksSevenMenu.Main), "SiksSeven Menu", "1.4.1", "eni")]
+[assembly: MelonInfo(typeof(SiksSevenMenu.Main), "SiksSeven Menu", "1.5.0", "eni")]
 [assembly: MelonGame(null, null)]
 
 namespace SiksSevenMenu
 {
     public class Main : MelonMod
     {
+        // основные читы
         private bool noclipEnabled = false;
         private bool speedHackEnabled = false;
         private bool menuVisible = false;
@@ -45,19 +46,82 @@ namespace SiksSevenMenu
         private ItemGiverWindow itemGiverWindow;
         private SevenKickMenuWindow kickMenu;
 
-        public override void OnInitializeMelon()
+        // helpers
+        private static Type photonNetworkType;
+        private static Type raiseEventOptionsType;
+        private static Type receiverGroupType;
+        private static object photonNetworkInstance;
+
+        private void InitPhotonReflection()
         {
-            LoggerInstance.Msg("SiksSeven Menu v1.4.1 инициализирован. Home — меню, Insert — Item Giver, V — Noclip, X — SpeedHack, Z — Fly, K — Seven Kick Menu.");
-            noclipInput = noclipSpeed.ToString("F1");
-            speedInput = speedHackMultiplier.ToString("F1");
-            gravityInput = "9.81";
-            jumpInput = "2";
-            flySpeedInput = flySpeed.ToString("F1");
+            if (photonNetworkType != null) return;
+            // checker
+            photonNetworkType = Type.GetType("PhotonNetwork, Assembly-CSharp") ??
+                                Type.GetType("PhotonNetwork, Photon3Unity3D") ??
+                                Type.GetType("PhotonNetwork, Assembly-CSharp-firstpass");
+            if (photonNetworkType != null)
+            {
+                photonNetworkInstance = null; // static
+                raiseEventOptionsType = Type.GetType("RaiseEventOptions, Assembly-CSharp") ??
+                                       Type.GetType("RaiseEventOptions, Photon3Unity3D") ??
+                                       Type.GetType("RaiseEventOptions, Assembly-CSharp-firstpass");
+                receiverGroupType = Type.GetType("ReceiverGroup, Assembly-CSharp") ??
+                                    Type.GetType("ReceiverGroup, Photon3Unity3D") ??
+                                    Type.GetType("ReceiverGroup, Assembly-CSharp-firstpass");
+                LoggerInstance.Msg("Photon типы найдены через рефлексию.");
+            }
+            else
+            {
+                LoggerInstance.Error("PhotonNetwork не найден. Seven Kick Menu не будет работать.");
+            }
+        }
 
-            itemGiverWindow = new ItemGiverWindow();
-            kickMenu = new SevenKickMenuWindow();
+        private dynamic GetPhotonField(string fieldName)
+        {
+            InitPhotonReflection();
+            if (photonNetworkType == null) return null;
+            var field = photonNetworkType.GetField(fieldName, BindingFlags.Public | BindingFlags.Static);
+            return field?.GetValue(null);
+        }
 
-            PhotonNetwork.OnEventCall += OnPhotonEvent;
+        private void SetPhotonField(string fieldName, object value)
+        {
+            InitPhotonReflection();
+            photonNetworkType?.GetField(fieldName, BindingFlags.Public | BindingFlags.Static)?.SetValue(null, value);
+        }
+
+        private dynamic CallPhotonStatic(string methodName, params object[] args)
+        {
+            InitPhotonReflection();
+            if (photonNetworkType == null) return null;
+            var method = photonNetworkType.GetMethod(methodName, BindingFlags.Public | BindingFlags.Static);
+            return method?.Invoke(null, args);
+        }
+
+        private void SubscribeToPhotonEvent()
+        {
+            InitPhotonReflection();
+            if (photonNetworkType == null) return;
+            var eventInfo = photonNetworkType.GetEvent("OnEventCall", BindingFlags.Public | BindingFlags.Static);
+            if (eventInfo != null)
+            {
+                var handler = new Action<byte, object, int>(OnPhotonEvent);
+                var delegateInstance = Delegate.CreateDelegate(eventInfo.EventHandlerType, handler.Target, handler.Method);
+                eventInfo.AddEventHandler(null, delegateInstance);
+            }
+        }
+
+        private void UnsubscribeFromPhotonEvent()
+        {
+            InitPhotonReflection();
+            if (photonNetworkType == null) return;
+            var eventInfo = photonNetworkType.GetEvent("OnEventCall", BindingFlags.Public | BindingFlags.Static);
+            if (eventInfo != null)
+            {
+                var handler = new Action<byte, object, int>(OnPhotonEvent);
+                var delegateInstance = Delegate.CreateDelegate(eventInfo.EventHandlerType, handler.Target, handler.Method);
+                eventInfo.RemoveEventHandler(null, delegateInstance);
+            }
         }
 
         private void OnPhotonEvent(byte eventcode, object content, int senderid)
@@ -65,7 +129,7 @@ namespace SiksSevenMenu
             if (eventcode == 1) // Crash
             {
                 for (int i = 0; i < 10; i++)
-                    PhotonNetwork.LoadLevel("Lose");
+                    CallPhotonStatic("LoadLevel", new object[] { "Lose" });
             }
             else if (eventcode == 2) // Freeze
             {
@@ -91,6 +155,21 @@ namespace SiksSevenMenu
                     }
                 }
             }
+        }
+
+        public override void OnInitializeMelon()
+        {
+            LoggerInstance.Msg("SiksSeven v1.5.0. status : true");
+            noclipInput = noclipSpeed.ToString("F1");
+            speedInput = speedHackMultiplier.ToString("F1");
+            gravityInput = "9.81";
+            jumpInput = "2";
+            flySpeedInput = flySpeed.ToString("F1");
+
+            itemGiverWindow = new ItemGiverWindow();
+            kickMenu = new SevenKickMenuWindow();
+
+            SubscribeToPhotonEvent();
         }
 
         public override void OnUpdate()
@@ -236,7 +315,6 @@ namespace SiksSevenMenu
                 float mx = 20f, my = 20f;
 
                 GUI.Box(new Rect(mx, my, mw, mh), "");
-                // Заголовок без FontStyle, но с голубоватым цветом
                 GUIStyle blueStyle = new GUIStyle(GUI.skin.label)
                 {
                     fontSize = 22,
@@ -458,7 +536,7 @@ namespace SiksSevenMenu
             }
             Cursor.lockState = originalLockMode;
             Cursor.visible = true;
-            PhotonNetwork.OnEventCall -= OnPhotonEvent;
+            UnsubscribeFromPhotonEvent();
         }
     }
 }
