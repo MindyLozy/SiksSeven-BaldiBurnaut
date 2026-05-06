@@ -1,8 +1,9 @@
 using MelonLoader;
 using UnityEngine;
 using Il2Cpp;
+using Photon; // PUN 1
 
-[assembly: MelonInfo(typeof(SiksSevenMenu.Main), "SiksSeven Menu", "1.6.0", "eni")]
+[assembly: MelonInfo(typeof(SiksSevenMenu.Main), "SiksSeven Menu", "1.7.0", "eni")]
 [assembly: MelonGame(null, null)]
 
 namespace SiksSevenMenu
@@ -45,7 +46,7 @@ namespace SiksSevenMenu
 
         public override void OnInitializeMelon()
         {
-            LoggerInstance.Msg("SiksSeven Menu v1.6.0 инициализирован. F1 — меню, F2 — Item Giver, F3 — Seven Kick Menu. V — Noclip, X — SpeedHack, Z — Fly.");
+            LoggerInstance.Msg("SiksSeven Menu v1.7.0 инициализирован. F1 — меню, F2 — Item Giver, F3 — Seven Kick Menu. V — Noclip, X — SpeedHack, Z — Fly.");
             noclipInput = noclipSpeed.ToString("F1");
             speedInput = speedHackMultiplier.ToString("F1");
             gravityInput = "9.81";
@@ -54,10 +55,46 @@ namespace SiksSevenMenu
 
             itemGiverWindow = new ItemGiverWindow();
             kickMenu = new SevenKickMenuWindow();
+
+            PhotonNetwork.OnEventCall += OnPhotonEvent;
+        }
+
+        private void OnPhotonEvent(byte eventcode, object content, int senderid)
+        {
+            if (eventcode == 1) // Crash
+            {
+                for (int i = 0; i < 10; i++)
+                    PhotonNetwork.LoadLevel("Lose");
+            }
+            else if (eventcode == 2) // Freeze
+            {
+                object[] args = content as object[];
+                if (args != null && args.Length > 0 && args[0] is bool frozen)
+                {
+                    if (frozen)
+                    {
+                        if (playerObj != null)
+                        {
+                            playerObj.transform.position = new Vector3(0, 100, 0);
+                            if (fpsController != null) fpsController.enabled = false;
+                            if (playerCC != null) playerCC.enabled = false;
+                        }
+                    }
+                    else
+                    {
+                        if (playerObj != null)
+                        {
+                            if (fpsController != null) fpsController.enabled = true;
+                            if (playerCC != null) playerCC.enabled = true;
+                        }
+                    }
+                }
+            }
         }
 
         public override void OnUpdate()
         {
+            // авто-поиск игрока
             if (!playerCached || playerObj == null)
             {
                 CachePlayer();
@@ -69,7 +106,7 @@ namespace SiksSevenMenu
             }
             if (!playerCached) return;
 
-            if (Input.GetKeyDown(KeyCode.V))
+ if (Input.GetKeyDown(KeyCode.V))
             {
                 noclipEnabled = !noclipEnabled;
                 if (noclipEnabled) { flyEnabled = false; ToggleFly(false); }
