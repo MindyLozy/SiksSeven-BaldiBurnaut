@@ -19,7 +19,7 @@ jobs:
         uses: microsoft/setup-msbuild@v2
 
       - name: Build mod
-        run: msbuild SiksSevenMod.csproj /t:Build /p:Configuration=Release /p:Platform=x64
+        run: msbuild SiksSevenMenu.csproj /t:Build /p:Configuration=Release /p:Platform=x64
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
