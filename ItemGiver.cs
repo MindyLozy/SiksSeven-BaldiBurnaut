@@ -17,8 +17,8 @@ namespace SiksSevenMenu
         private readonly string[] itemNames = new string[]
         {
             "Bsoda", "Apple", "Banana", "Quarter",
-            "GrapplingHook", "Dirty Chalk Eraser", "Present",
-            "SafetyScissors", "SnowBall", "Swinging Door Lock",
+            "GrapplingHook", "DirtyChalkEraser", "Present",
+            "SafetyScissors", "SnowBall", "SwingingDoorLock",
             "Tape", "ZestyBar"
         };
 
@@ -93,7 +93,7 @@ namespace SiksSevenMenu
             // 2. Если не нашли — ошибка, но мы не сдаёмся
             if (prefab == null)
             {
-                MelonLogger.Error($"Префаб '{itemName}' не найден ни в мире, ни в ресурсах.");
+                MelonLogger.Error($"prefab '{itemName}' not found in scene, not in resourses (gonna fix it)");
                 return;
             }
 
@@ -101,7 +101,7 @@ namespace SiksSevenMenu
             GameObject newItem = Object.Instantiate(prefab);
             if (newItem == null)
             {
-                MelonLogger.Error($"Не удалось создать предмет '{itemName}'.");
+                MelonLogger.Error($"failed to create '{itemName}'.");
                 return;
             }
 
@@ -115,13 +115,13 @@ namespace SiksSevenMenu
                                    + Camera.main.transform.forward * 2.5f
                                    + Vector3.up * 1.2f;
                 newItem.transform.position = spawnPos;
-                MelonLogger.Msg($"Предмет '{itemName}' заспавнен перед игроком.");
+                MelonLogger.Msg($"item '{itemName}' spawned");
             }
             else
             {
                 // Если игрок не найден — хотя бы в нуле координат
                 newItem.transform.position = new Vector3(0f, 1f, 0f);
-                MelonLogger.Warning($"Игрок не найден, предмет '{itemName}' создан в центре мира.");
+                MelonLogger.Warning($"player not found '{itemName}' spawned in center of map.");
             }
         }
     }
