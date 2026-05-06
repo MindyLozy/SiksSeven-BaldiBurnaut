@@ -91,7 +91,7 @@ namespace SiksSevenMenu
                 menuVisible = !menuVisible;
                 UpdateCursorState();
             }
-            if (Input.GetKeyDown(KeyCode.Insert))
+            if (Input.GetKeyDown(KeyCode.F2))
             {
                 showItemGiver = !showItemGiver;
                 itemGiverWindow.Visible = showItemGiver;
