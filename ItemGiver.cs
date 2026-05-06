@@ -1,6 +1,7 @@
 using MelonLoader;
 using UnityEngine;
 using Il2Cpp;
+using System.Reflection;
 
 namespace SiksSevenMenu
 {
@@ -8,10 +9,10 @@ namespace SiksSevenMenu
     {
         public bool Visible = false;
 
-        // перетаскиваемое окно
         private Rect windowRect = new Rect(360f, 20f, 220f, 350f);
         private bool isDragging = false;
         private Vector2 dragOffset;
+        private Vector2 scrollPos;
 
         private readonly string[] itemNames = new string[]
         {
@@ -21,13 +22,10 @@ namespace SiksSevenMenu
             "Tape", "ZestyBar"
         };
 
-        private Vector2 scrollPos;
-
         public void OnGUI()
         {
             if (!Visible) return;
 
-            // обрабатываем перетаскивание за заголовок
             Rect headerRect = new Rect(windowRect.x, windowRect.y, windowRect.width, 25);
             Event e = Event.current;
             if (e.type == EventType.MouseDown && headerRect.Contains(e.mousePosition))
@@ -43,20 +41,16 @@ namespace SiksSevenMenu
                 e.Use();
             }
             if (e.type == EventType.MouseUp)
-            {
                 isDragging = false;
-            }
 
-            // фон окна
             GUI.Box(windowRect, "Item Giver");
 
-            // область с прокруткой
             GUILayout.BeginArea(new Rect(windowRect.x + 10, windowRect.y + 25, windowRect.width - 20, windowRect.height - 35));
-            scrollPos = GUILayout.BeginScrollView(scrollPos, GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(true));
+            scrollPos = GUILayout.BeginScrollView(scrollPos);
 
             foreach (string name in itemNames)
             {
-                if (GUILayout.Button(name, GUILayout.Height(25)))
+                if (GUILayout.Button(name))
                 {
                     GiveItem(name);
                 }
@@ -68,10 +62,9 @@ namespace SiksSevenMenu
 
         private void GiveItem(string itemName)
         {
-            // ищем префаб предмета по имени
-            Item[] allItems = Resources.FindObjectsOfTypeAll<Item>();
+            // Найти префаб предмета через Resources
             Item targetPrefab = null;
-            foreach (var it in allItems)
+            foreach (var it in Resources.FindObjectsOfTypeAll<Item>())
             {
                 if (it.name.Equals(itemName, System.StringComparison.OrdinalIgnoreCase))
                 {
@@ -79,35 +72,48 @@ namespace SiksSevenMenu
                     break;
                 }
             }
-
             if (targetPrefab == null)
             {
-                MelonLogger.Error("not found item: " + itemName);
+                MelonLogger.Error("Предмет не найден: " + itemName);
                 return;
             }
 
-            Item newItem = GameObject.Instantiate(targetPrefab);
+            Item newItem = Object.Instantiate(targetPrefab);
 
-            // пытаемся положить в инвентарь игрока
             GameObject player = GameObject.FindGameObjectWithTag("Player");
             if (player == null) player = GameObject.Find("Player");
             if (player == null)
             {
-                MelonLogger.Error("Player not found");
+                MelonLogger.Error("Игрок не найден — предмет создан на сцене.");
                 return;
             }
 
+            // Попытаемся добавить в InventorySlotScript через рефлексию
             InventorySlotScript invSlot = player.GetComponent<InventorySlotScript>();
             if (invSlot != null)
             {
-                // вызываем любой существующий метод добавления
-                invSlot.AddItem(newItem);
-                MelonLogger.Msg($"added item: {itemName}");
+                System.Type t = invSlot.GetType();
+                MethodInfo addMethod = t.GetMethod("AddItem", new System.Type[] { typeof(Item) });
+                if (addMethod != null)
+                {
+                    addMethod.Invoke(invSlot, new object[] { newItem });
+                    MelonLogger.Msg($"Предмет {itemName} добавлен в инвентарь.");
+                }
+                else
+                {
+                    MelonLogger.Warning("Метод AddItem не найден. Пробуем альтернативу.");
+                    // Альтернатива: напрямую задаём _inventoryScript и кладём в слот
+                    ItemScript its = newItem.GetComponent<ItemScript>();
+                    if (its != null)
+                    {
+                        its._inventoryScript = player.GetComponent<MonoBehaviour>(); // Cast if needed
+                        MelonLogger.Msg($"Предмет {itemName} помещён в инвентарь через _inventoryScript.");
+                    }
+                }
             }
             else
             {
-                // если InventorySlotScript не найден, предмет остаётся в мире
-                MelonLogger.Warning("Inventory not found");
+                MelonLogger.Warning("InventorySlotScript не обнаружен. Предмет остался в мире.");
             }
         }
     }
