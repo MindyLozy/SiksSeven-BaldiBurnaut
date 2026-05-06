@@ -50,19 +50,19 @@ namespace SiksSevenMenu
 
         public override void OnUpdate()
         {
-            // Авто-восстановление игрока при смене сцены
+            // сейв игрока при переходе на некст сцену
             if (!playerCached || playerObj == null)
             {
                 CachePlayer();
                 if (playerCached)
                 {
-                    // повторно применим активные читы
+                    // загрузка если сцена поменялась
                     if (noclipEnabled) ToggleNoclip(true);
                 }
             }
             if (!playerCached) return;
 
-            // Клавиши
+            // кейбинды
             if (Input.GetKeyDown(KeyCode.V))
             {
                 noclipEnabled = !noclipEnabled;
@@ -86,14 +86,14 @@ namespace SiksSevenMenu
                 UpdateCursorState();
             }
 
-            // Infinite Stamina
+            // беск ставмина
             if (infiniteStamina && playerPrototype != null)
             {
                 playerPrototype.MaxStamina = 999999999f;
                 playerPrototype.stamina = 999999999f;
             }
 
-            // Infinite Items
+            // беск предметы (неворк)
             if (infiniteItems)
             {
                 MonoBehaviour[] allMono = Object.FindObjectsOfType<MonoBehaviour>();
@@ -104,7 +104,7 @@ namespace SiksSevenMenu
                 }
             }
 
-            // Noclip
+            // ноклип
             if (noclipEnabled && playerObj != null)
             {
                 if (fpsController != null && fpsController.enabled)
@@ -133,7 +133,7 @@ namespace SiksSevenMenu
                     playerObj.transform.position += dir * noclipSpeed * Time.unscaledDeltaTime;
                 }
             }
-            // SpeedHack
+            // спидхак
             else if (speedHackEnabled && playerObj != null)
             {
                 float moveH = Input.GetAxis("Horizontal");
@@ -252,7 +252,7 @@ namespace SiksSevenMenu
                 }
             }
 
-            // Item Giver окно
+            // окно выдавателя
             if (showItemGiver)
                 itemGiverWindow.OnGUI();
         }
