@@ -1,7 +1,7 @@
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(SiksSevenMenu.Main), "SiksSeven Menu", "1.0.0", "eni")]
+[assembly: MelonInfo(typeof(SiksSevenMenu.Main), "SiksSeven Menu", "1.0.0", "LOLWorking")]
 [assembly: MelonGame(null, null)]
 
 namespace SiksSevenMenu
@@ -31,7 +31,7 @@ namespace SiksSevenMenu
 
         public override void OnInitializeMelon()
         {
-            LoggerInstance.Msg("SiksSeven Menu инициализирован. Home — меню, V — Noclip, X — SpeedHack.");
+            LoggerInstance.Msg("67");
             noclipInput = noclipSpeed.ToString("F1");
             speedInput = speedHackMultiplier.ToString("F1");
         }
