@@ -28,15 +28,15 @@
     <Reference Include="UnityEngine.PhysicsModule">
       <HintPath>Libs\UnityEngine.PhysicsModule.dll</HintPath>
     </Reference>
+    <Reference Include="UnityEngine.TextRenderingModule">
+      <HintPath>Libs\UnityEngine.TextRenderingModule.dll</HintPath>
+    </Reference>
     <Reference Include="Assembly-CSharp">
       <HintPath>Libs\Assembly-CSharp.dll</HintPath>
     </Reference>
     <Reference Include="Il2CppFusion.Runtime">
       <HintPath>Libs\Il2CppFusion.Runtime.dll</HintPath>
     </Reference>
-    <!-- pun 1 -->
-    <Reference Include="Photon3Unity3D">
-      <HintPath>Libs\Photon3Unity3D.dll</HintPath>
-    </Reference>
+    <!-- Photon больше не подключаем явно, все вызовы через рантайм-рефлексию -->
   </ItemGroup>
 </Project>
