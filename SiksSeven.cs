@@ -1,7 +1,7 @@
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(SiksSevenMenu.Main), "SiksSeven Menu", "1.0.0", "LOLWorking")]
+[assembly: MelonInfo(typeof(SiksSevenMenu.Main), "SiksSeven Menu", "1.0.0", "eni")]
 [assembly: MelonGame(null, null)]
 
 namespace SiksSevenMenu
@@ -15,7 +15,7 @@ namespace SiksSevenMenu
         private float noclipSpeed = 10f;
         private float speedHackMultiplier = 2f;
 
-        // строки для текстовых полей (живые, не форматируются принудительно)
+        // сырые строки для текстовых полей
         private string noclipInput = "10";
         private string speedInput = "2";
 
@@ -116,7 +116,7 @@ namespace SiksSevenMenu
         {
             if (!menuVisible) return;
 
-            float menuW = 300f, menuH = 260f;
+            float menuW = 300f, menuH = 320f; // чуть выше для кнопок Apply
             float x = 20f;
             float y = 20f;
 
@@ -136,37 +136,28 @@ namespace SiksSevenMenu
                 speedHackEnabled = !speedHackEnabled;
             }
 
-            // ---------- Noclip Speed ----------
+            // -------- Noclip Speed --------
             GUI.Label(new Rect(x + 10, y + 135, 100, 20), "Noclip Speed:");
-            GUI.SetNextControlName("NoclipField");
-            string newNoclipInput = GUI.TextField(new Rect(x + 120, y + 135, 70, 20), noclipInput);
-            // сохраняем ввод только по Enter, если фокус на этом поле
-            if (Event.current.type == EventType.KeyDown && Event.current.keyCode == KeyCode.Return
-                && GUI.GetNameOfFocusedControl() == "NoclipField")
+            noclipInput = GUI.TextField(new Rect(x + 120, y + 135, 70, 20), noclipInput);
+            if (GUI.Button(new Rect(x + 200, y + 135, 80, 20), "Apply"))
             {
-                if (float.TryParse(newNoclipInput, out float parsed))
+                if (float.TryParse(noclipInput, out float parsed))
                 {
                     noclipSpeed = Mathf.Clamp(parsed, 0.1f, 100f);
-                    noclipInput = noclipSpeed.ToString("F1"); // форматируем только после подтверждения
+                    noclipInput = noclipSpeed.ToString("F1");
                 }
                 else
                 {
-                    noclipInput = noclipSpeed.ToString("F1"); // сброс на последнее рабочее
+                    noclipInput = noclipSpeed.ToString("F1");
                 }
             }
-            else
-            {
-                noclipInput = newNoclipInput; // разрешаем свободный ввод
-            }
 
-            // ---------- Speed Multiplier ----------
-            GUI.Label(new Rect(x + 10, y + 165, 130, 20), "Speed Multiplier:");
-            GUI.SetNextControlName("SpeedField");
-            string newSpeedInput = GUI.TextField(new Rect(x + 150, y + 165, 70, 20), speedInput);
-            if (Event.current.type == EventType.KeyDown && Event.current.keyCode == KeyCode.Return
-                && GUI.GetNameOfFocusedControl() == "SpeedField")
+            // -------- Speed Multiplier --------
+            GUI.Label(new Rect(x + 10, y + 175, 130, 20), "Speed Multiplier:");
+            speedInput = GUI.TextField(new Rect(x + 150, y + 175, 70, 20), speedInput);
+            if (GUI.Button(new Rect(x + 230, y + 175, 50, 20), "Apply"))
             {
-                if (float.TryParse(newSpeedInput, out float parsed))
+                if (float.TryParse(speedInput, out float parsed))
                 {
                     speedHackMultiplier = Mathf.Clamp(parsed, 0.1f, 20f);
                     speedInput = speedHackMultiplier.ToString("F1");
@@ -175,10 +166,6 @@ namespace SiksSevenMenu
                 {
                     speedInput = speedHackMultiplier.ToString("F1");
                 }
-            }
-            else
-            {
-                speedInput = newSpeedInput;
             }
         }
 
