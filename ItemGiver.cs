@@ -1,6 +1,7 @@
 using MelonLoader;
 using UnityEngine;
 using Il2Cpp;
+using System.Reflection;
 
 namespace SiksSevenMenu
 {
@@ -11,7 +12,8 @@ namespace SiksSevenMenu
         private Rect windowRect = new Rect(360f, 20f, 220f, 350f);
         private bool isDragging = false;
         private Vector2 dragOffset;
-        private Vector2 scrollPos;
+        private float scrollOffset = 0f;
+        private float itemHeight = 28f;
 
         private readonly string[] itemNames = new string[]
         {
@@ -25,7 +27,7 @@ namespace SiksSevenMenu
         {
             if (!Visible) return;
 
-            // Перетаскивание за заголовок
+            // --- Перетаскивание ---
             Rect headerRect = new Rect(windowRect.x, windowRect.y, windowRect.width, 25);
             Event e = Event.current;
             if (e.type == EventType.MouseDown && headerRect.Contains(e.mousePosition))
@@ -43,26 +45,44 @@ namespace SiksSevenMenu
             if (e.type == EventType.MouseUp)
                 isDragging = false;
 
+            // --- Окно ---
             GUI.Box(windowRect, "Item Giver");
 
-            GUILayout.BeginArea(new Rect(windowRect.x + 10, windowRect.y + 25, windowRect.width - 20, windowRect.height - 35));
-            scrollPos = GUILayout.BeginScrollView(scrollPos);
+            // --- Прямоугольник списка (клиентская область) ---
+            Rect listRect = new Rect(windowRect.x + 10, windowRect.y + 35, windowRect.width - 20, windowRect.height - 50);
+            float contentHeight = itemNames.Length * itemHeight;
+            float viewHeight = listRect.height;
 
-            foreach (string name in itemNames)
+            // Прокрутка колёсиком, только если мышь над окном
+            if (listRect.Contains(e.mousePosition) && e.type == EventType.ScrollWheel)
             {
-                if (GUILayout.Button(name))
+                scrollOffset += e.delta.y * 20f;
+                e.Use();
+            }
+            scrollOffset = Mathf.Clamp(scrollOffset, 0f, Mathf.Max(0, contentHeight - viewHeight));
+
+            // Отрисовка видимых кнопок в абсолютных координатах
+            int firstVisible = Mathf.FloorToInt(scrollOffset / itemHeight);
+            int lastVisible = Mathf.CeilToInt((scrollOffset + viewHeight) / itemHeight);
+            lastVisible = Mathf.Min(lastVisible, itemNames.Length - 1);
+
+            for (int i = firstVisible; i <= lastVisible; i++)
+            {
+                float yPos = listRect.y + i * itemHeight - scrollOffset;
+                Rect btnRect = new Rect(listRect.x, yPos, listRect.width - 12, itemHeight - 2);
+                if (btnRect.yMax > windowRect.y + 35 && btnRect.y < windowRect.yMax - 15) // дополнительная проверка видимости
                 {
-                    GiveItem(name);
+                    if (GUI.Button(btnRect, itemNames[i]))
+                    {
+                        GiveItem(itemNames[i]);
+                    }
                 }
             }
-
-            GUILayout.EndScrollView();
-            GUILayout.EndArea();
         }
 
         private void GiveItem(string itemName)
         {
-            // Ищем префаб как GameObject (в Балди предметы — префабы с компонентом Item)
+            // Найти префаб как GameObject
             GameObject prefab = null;
             foreach (var go in Resources.FindObjectsOfTypeAll<GameObject>())
             {
@@ -78,37 +98,33 @@ namespace SiksSevenMenu
                 return;
             }
 
-            // Создаём экземпляр
             GameObject newObj = Object.Instantiate(prefab);
             ItemScript itemScr = newObj.GetComponent<ItemScript>();
             if (itemScr == null)
             {
-                MelonLogger.Error("ItemScript не найден на предмете: " + itemName);
+                MelonLogger.Error("ItemScript не найден на: " + itemName);
                 return;
             }
 
-            // Ищем инвентарь игрока
             GameObject player = GameObject.FindGameObjectWithTag("Player");
             if (player == null) player = GameObject.Find("Player");
             if (player == null)
             {
-                MelonLogger.Error("Игрок не найден — предмет создан в мире.");
+                MelonLogger.Error("Игрок не найден, предмет создан в мире.");
                 return;
             }
 
             InventorySlotScript invSlot = player.GetComponent<InventorySlotScript>();
             if (invSlot != null)
             {
-                // Присваиваем инвентарный скрипт предмету
                 itemScr._inventoryScript = invSlot;
 
-                // Пытаемся добавить через метод AddItem (рефлексия)
                 var addMethod = invSlot.GetType().GetMethod("AddItem", new System.Type[] { typeof(ItemScript) });
                 if (addMethod != null)
                     addMethod.Invoke(invSlot, new object[] { itemScr });
                 else
-                    MelonLogger.Warning("AddItem не найден, предмет привязан к инвентарю, но не добавлен. Возможно, нужен ручной вызов.");
-                
+                    MelonLogger.Warning("AddItem не найден, но предмет привязан к инвентарю.");
+
                 MelonLogger.Msg($"Предмет {itemName} выдан.");
             }
             else
