@@ -37,9 +37,6 @@
     <Reference Include="Il2CppFusion.Runtime">
       <HintPath>Libs\Il2CppFusion.Runtime.dll</HintPath>
     </Reference>
-    <!-- Photon PUN 1 -->
-    <Reference Include="Photon3Unity3D">
-      <HintPath>Libs\Photon3Unity3D.dll</HintPath>
-    </Reference>
+    <!-- Photon не подключаем – используем рефлексию -->
   </ItemGroup>
 </Project>
