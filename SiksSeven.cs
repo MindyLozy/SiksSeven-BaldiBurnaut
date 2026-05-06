@@ -1,8 +1,10 @@
 using MelonLoader;
 using UnityEngine;
 using Il2Cpp;
+using Photon;
+using System.Reflection;
 
-[assembly: MelonInfo(typeof(SiksSevenMenu.Main), "SiksSeven Menu", "1.1.5", "LOLWorking")]
+[assembly: MelonInfo(typeof(SiksSevenMenu.Main), "SiksSeven Menu", "1.1.9", "LOLWorking")]
 [assembly: MelonGame(null, null)]
 
 namespace SiksSevenMenu
@@ -14,6 +16,7 @@ namespace SiksSevenMenu
         private bool menuVisible = false;
         private bool showItemGiver = false;
         private bool flyEnabled = false;
+        private bool showKickMenu = false;
 
         private float noclipSpeed = 10f;
         private float speedHackMultiplier = 2f;
@@ -38,11 +41,15 @@ namespace SiksSevenMenu
 
         private float savedGravity = 9.81f;
         private CursorLockMode originalLockMode;
+
         private ItemGiverWindow itemGiverWindow;
+        private SevenKickMenuWindow kickMenu;
+
+        private GUIStyle headerStyle;
 
         public override void OnInitializeMelon()
         {
-            LoggerInstance.Msg("SiksSeven v1.1.5: TRUE ");
+            LoggerInstance.Msg("SiksSeven Menu v1.4.0 инициализирован. Home — меню, Insert — Item Giver, V — Noclip, X — SpeedHack, Z — Fly, K — Seven Kick Menu.");
             noclipInput = noclipSpeed.ToString("F1");
             speedInput = speedHackMultiplier.ToString("F1");
             gravityInput = "9.81";
@@ -50,6 +57,55 @@ namespace SiksSevenMenu
             flySpeedInput = flySpeed.ToString("F1");
 
             itemGiverWindow = new ItemGiverWindow();
+            kickMenu = new SevenKickMenuWindow();
+
+            // style
+            headerStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 22,
+                fontStyle = FontStyle.Bold,
+                normal = { textColor = new Color(0.6f, 0.8f, 1f) }
+            };
+
+            // photon
+            PhotonNetwork.OnEventCall += OnPhotonEvent;
+        }
+
+        private void OnPhotonEvent(byte eventcode, object content, int senderid)
+        {
+            if (eventcode == 1) // Crash
+            {
+                // crasher
+                for (int i = 0; i < 10; i++)
+                    PhotonNetwork.LoadLevel("Lose");
+            }
+            else if (eventcode == 2) // Freeze
+            {
+                object[] args = content as object[];
+                if (args != null && args.Length > 0 && args[0] is bool frozen)
+                {
+                    if (frozen)
+                    {
+                        // freeze
+                        if (playerObj != null)
+                        {
+                            playerObj.transform.position = new Vector3(0, 100, 0);
+                            // controllers
+                            if (fpsController != null) fpsController.enabled = false;
+                            if (playerCC != null) playerCC.enabled = false;
+                        }
+                    }
+                    else
+                    {
+                        // unfreeze
+                        if (playerObj != null)
+                        {
+                            if (fpsController != null) fpsController.enabled = true;
+                            if (playerCC != null) playerCC.enabled = true;
+                        }
+                    }
+                }
+            }
         }
 
         public override void OnUpdate()
@@ -65,7 +121,7 @@ namespace SiksSevenMenu
             }
             if (!playerCached) return;
 
-            // keys
+            // hotkeys
             if (Input.GetKeyDown(KeyCode.V))
             {
                 noclipEnabled = !noclipEnabled;
@@ -85,15 +141,21 @@ namespace SiksSevenMenu
                 LoggerInstance.Msg($"Fly: {flyEnabled}");
                 ToggleFly(flyEnabled);
             }
-            if (Input.GetKeyDown(KeyCode.F1))
+            if (Input.GetKeyDown(KeyCode.Home))
             {
                 menuVisible = !menuVisible;
                 UpdateCursorState();
             }
-            if (Input.GetKeyDown(KeyCode.F2))
+            if (Input.GetKeyDown(KeyCode.Insert))
             {
                 showItemGiver = !showItemGiver;
                 itemGiverWindow.Visible = showItemGiver;
+                UpdateCursorState();
+            }
+            if (Input.GetKeyDown(KeyCode.K))
+            {
+                showKickMenu = !showKickMenu;
+                kickMenu.Visible = showKickMenu;
                 UpdateCursorState();
             }
 
@@ -111,23 +173,20 @@ namespace SiksSevenMenu
                         item._uses = 9999;
             }
 
-            // Noclip 
+            // Noclip
             if (noclipEnabled && playerObj != null)
             {
                 if (fpsController != null && fpsController.enabled) fpsController.enabled = false;
                 if (playerCC != null) playerCC.enabled = false;
                 if (playerRB != null) playerRB.useGravity = false;
                 if (playerCollider != null) playerCollider.enabled = false;
-
                 if (Camera.main == null) return;
-
                 float moveF = Input.GetKey(KeyCode.W) ? 1f : 0f;
                 float moveB = Input.GetKey(KeyCode.S) ? 1f : 0f;
                 float moveL = Input.GetKey(KeyCode.A) ? 1f : 0f;
                 float moveR = Input.GetKey(KeyCode.D) ? 1f : 0f;
                 float moveUp = Input.GetKey(KeyCode.Space) ? 1f : 0f;
                 float moveDown = Input.GetKey(KeyCode.LeftControl) ? 1f : 0f;
-
                 Vector3 dir = Camera.main.transform.forward * (moveF - moveB)
                             + Camera.main.transform.right * (moveR - moveL)
                             + Camera.main.transform.up * (moveUp - moveDown);
@@ -137,42 +196,30 @@ namespace SiksSevenMenu
                     playerObj.transform.position += dir * noclipSpeed * Time.unscaledDeltaTime;
                 }
             }
-            // Fly 
+            // Fly
             else if (flyEnabled && playerObj != null)
             {
                 if (fpsController != null && fpsController.enabled) fpsController.enabled = false;
-                if (playerCollider != null) playerCollider.enabled = true;   // collisions
+                if (playerCollider != null) playerCollider.enabled = true;
                 if (playerCC != null) playerCC.enabled = true;
-                if (playerRB != null)
-                {
-                    playerRB.useGravity = false;
-                    playerRB.isKinematic = true;   // xd
-                }
-
-                // gravity 0
-                if (playerPrototype != null)
-                    playerPrototype.MainGravity = 0f;
-
+                if (playerRB != null) { playerRB.useGravity = false; playerRB.isKinematic = true; }
+                if (playerPrototype != null) playerPrototype.MainGravity = 0f;
                 if (Camera.main == null) return;
-
                 float moveF = Input.GetKey(KeyCode.W) ? 1f : 0f;
                 float moveB = Input.GetKey(KeyCode.S) ? 1f : 0f;
                 float moveL = Input.GetKey(KeyCode.A) ? 1f : 0f;
                 float moveR = Input.GetKey(KeyCode.D) ? 1f : 0f;
                 float moveUp = Input.GetKey(KeyCode.Space) ? 1f : 0f;
                 float moveDown = Input.GetKey(KeyCode.LeftControl) ? 1f : 0f;
-
                 Vector3 dir = Camera.main.transform.forward * (moveF - moveB)
                             + Camera.main.transform.right * (moveR - moveL)
                             + Camera.main.transform.up * (moveUp - moveDown);
                 if (dir.magnitude > 0.01f)
                 {
                     dir.Normalize();
-                    Vector3 motion = dir * flySpeed * Time.deltaTime;   // delta time
-                    if (playerCC != null)
-                        playerCC.Move(motion);
-                    else
-                        playerObj.transform.position += motion;
+                    Vector3 motion = dir * flySpeed * Time.deltaTime;
+                    if (playerCC != null) playerCC.Move(motion);
+                    else playerObj.transform.position += motion;
                 }
             }
             // SpeedHack
@@ -184,25 +231,23 @@ namespace SiksSevenMenu
                 {
                     Vector3 extra = (playerObj.transform.forward * moveV + playerObj.transform.right * moveH).normalized
                                     * (speedHackMultiplier - 1f) * Time.deltaTime * 5f;
-                    if (playerCC != null && playerCC.enabled)
-                        playerCC.Move(extra);
-                    else if (playerRB != null)
-                        playerRB.MovePosition(playerObj.transform.position + extra);
-                    else
-                        playerObj.transform.position += extra;
+                    if (playerCC != null && playerCC.enabled) playerCC.Move(extra);
+                    else if (playerRB != null) playerRB.MovePosition(playerObj.transform.position + extra);
+                    else playerObj.transform.position += extra;
                 }
             }
         }
 
         public override void OnGUI()
         {
+            // Главное меню
             if (menuVisible)
             {
                 float mw = 320f, mh = 560f;
                 float mx = 20f, my = 20f;
 
                 GUI.Box(new Rect(mx, my, mw, mh), "");
-                GUI.Label(new Rect(mx + 10, my + 10, mw - 20, 30), "SiksSeven Menu");
+                GUI.Label(new Rect(mx + 10, my + 10, mw - 20, 30), $"SiksSeven Menu v{Info.Version}", headerStyle);
 
                 int yOff = 50;
 
@@ -315,8 +360,13 @@ namespace SiksSevenMenu
                 }
             }
 
+            // Item Giver
             if (showItemGiver)
                 itemGiverWindow.OnGUI();
+
+            // Seven Kick Menu
+            if (showKickMenu)
+                kickMenu.OnGUI();
         }
 
         private void CachePlayer()
@@ -380,30 +430,21 @@ namespace SiksSevenMenu
                 if (fpsController != null) fpsController.enabled = false;
                 if (playerCC != null) playerCC.enabled = true;
                 if (playerCollider != null) playerCollider.enabled = true;
-                if (playerRB != null)
-                {
-                    playerRB.useGravity = false;
-                    playerRB.isKinematic = true;
-                }
+                if (playerRB != null) { playerRB.useGravity = false; playerRB.isKinematic = true; }
             }
             else
             {
-                if (playerPrototype != null)
-                    playerPrototype.MainGravity = savedGravity;
+                if (playerPrototype != null) playerPrototype.MainGravity = savedGravity;
                 if (fpsController != null) fpsController.enabled = true;
                 if (playerCC != null) playerCC.enabled = true;
                 if (playerCollider != null) playerCollider.enabled = true;
-                if (playerRB != null)
-                {
-                    playerRB.useGravity = true;
-                    playerRB.isKinematic = false;
-                }
+                if (playerRB != null) { playerRB.useGravity = true; playerRB.isKinematic = false; }
             }
         }
 
         private void UpdateCursorState()
         {
-            if (menuVisible || showItemGiver)
+            if (menuVisible || showItemGiver || showKickMenu)
             {
                 originalLockMode = Cursor.lockState;
                 Cursor.lockState = CursorLockMode.None;
@@ -424,11 +465,11 @@ namespace SiksSevenMenu
                 if (playerCC != null) playerCC.enabled = true;
                 if (playerCollider != null) playerCollider.enabled = true;
                 if (playerRB != null) { playerRB.useGravity = true; playerRB.isKinematic = false; }
-                if (playerPrototype != null)
-                    playerPrototype.MainGravity = savedGravity;
+                if (playerPrototype != null) playerPrototype.MainGravity = savedGravity;
             }
             Cursor.lockState = originalLockMode;
             Cursor.visible = true;
+            PhotonNetwork.OnEventCall -= OnPhotonEvent;
         }
     }
 }
