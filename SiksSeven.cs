@@ -2,7 +2,7 @@ using MelonLoader;
 using UnityEngine;
 using Il2Cpp;
 
-[assembly: MelonInfo(typeof(SiksSevenMenu.Main), "SiksSeven Menu", "1.3.1", "eni")]
+[assembly: MelonInfo(typeof(SiksSevenMenu.Main), "SiksSeven Menu", "1.1.5", "LOLWorking")]
 [assembly: MelonGame(null, null)]
 
 namespace SiksSevenMenu
