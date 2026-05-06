@@ -17,7 +17,7 @@ namespace SiksSevenMenu
         private readonly string[] itemNames = new string[]
         {
             "Bsoda", "Apple", "Banana", "Quarter",
-            "GrapplingHook", "Dirty Chalk", "Present",
+            "GrapplingHook", "Chalk Eraser", "Present",
             "SafetyScissors", "SnowBall", "SwingingDoorLock",
             "Tape", "ZestyBar"
         };
