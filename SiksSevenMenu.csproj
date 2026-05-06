@@ -7,9 +7,18 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- MelonLoader -->
     <Reference Include="MelonLoader">
       <HintPath>Libs\MelonLoader.dll</HintPath>
     </Reference>
+    <Reference Include="Il2Cppmscorlib">
+      <HintPath>Libs\Il2Cppmscorlib.dll</HintPath>
+    </Reference>
+    <Reference Include="Il2CppInterop.Runtime">
+      <HintPath>Libs\Il2CppInterop.Runtime.dll</HintPath>
+    </Reference>
+
+    <!-- Unity -->
     <Reference Include="UnityEngine.CoreModule">
       <HintPath>Libs\UnityEngine.CoreModule.dll</HintPath>
     </Reference>
