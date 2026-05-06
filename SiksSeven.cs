@@ -4,14 +4,13 @@ using Il2Cpp;
 using System;
 using System.Reflection;
 
-[assembly: MelonInfo(typeof(SiksSevenMenu.Main), "SiksSeven Menu", "1.5.0", "eni")]
+[assembly: MelonInfo(typeof(SiksSevenMenu.Main), "SiksSeven Menu", "1.5.1", "eni")]
 [assembly: MelonGame(null, null)]
 
 namespace SiksSevenMenu
 {
     public class Main : MelonMod
     {
-        // основные читы
         private bool noclipEnabled = false;
         private bool speedHackEnabled = false;
         private bool menuVisible = false;
@@ -46,22 +45,19 @@ namespace SiksSevenMenu
         private ItemGiverWindow itemGiverWindow;
         private SevenKickMenuWindow kickMenu;
 
-        // helpers
+        // ---------- Photon-хелперы (рефлексия) ----------
         private static Type photonNetworkType;
         private static Type raiseEventOptionsType;
         private static Type receiverGroupType;
-        private static object photonNetworkInstance;
 
         private void InitPhotonReflection()
         {
             if (photonNetworkType != null) return;
-            // checker
             photonNetworkType = Type.GetType("PhotonNetwork, Assembly-CSharp") ??
                                 Type.GetType("PhotonNetwork, Photon3Unity3D") ??
                                 Type.GetType("PhotonNetwork, Assembly-CSharp-firstpass");
             if (photonNetworkType != null)
             {
-                photonNetworkInstance = null; // static
                 raiseEventOptionsType = Type.GetType("RaiseEventOptions, Assembly-CSharp") ??
                                        Type.GetType("RaiseEventOptions, Photon3Unity3D") ??
                                        Type.GetType("RaiseEventOptions, Assembly-CSharp-firstpass");
@@ -76,38 +72,16 @@ namespace SiksSevenMenu
             }
         }
 
-        private dynamic GetPhotonField(string fieldName)
-        {
-            InitPhotonReflection();
-            if (photonNetworkType == null) return null;
-            var field = photonNetworkType.GetField(fieldName, BindingFlags.Public | BindingFlags.Static);
-            return field?.GetValue(null);
-        }
-
-        private void SetPhotonField(string fieldName, object value)
-        {
-            InitPhotonReflection();
-            photonNetworkType?.GetField(fieldName, BindingFlags.Public | BindingFlags.Static)?.SetValue(null, value);
-        }
-
-        private dynamic CallPhotonStatic(string methodName, params object[] args)
-        {
-            InitPhotonReflection();
-            if (photonNetworkType == null) return null;
-            var method = photonNetworkType.GetMethod(methodName, BindingFlags.Public | BindingFlags.Static);
-            return method?.Invoke(null, args);
-        }
-
         private void SubscribeToPhotonEvent()
         {
             InitPhotonReflection();
             if (photonNetworkType == null) return;
-            var eventInfo = photonNetworkType.GetEvent("OnEventCall", BindingFlags.Public | BindingFlags.Static);
+            EventInfo eventInfo = photonNetworkType.GetEvent("OnEventCall", BindingFlags.Public | BindingFlags.Static);
             if (eventInfo != null)
             {
                 var handler = new Action<byte, object, int>(OnPhotonEvent);
-                var delegateInstance = Delegate.CreateDelegate(eventInfo.EventHandlerType, handler.Target, handler.Method);
-                eventInfo.AddEventHandler(null, delegateInstance);
+                Delegate del = Delegate.CreateDelegate(eventInfo.EventHandlerType, handler.Target, handler.Method);
+                eventInfo.AddEventHandler(null, del);
             }
         }
 
@@ -115,12 +89,12 @@ namespace SiksSevenMenu
         {
             InitPhotonReflection();
             if (photonNetworkType == null) return;
-            var eventInfo = photonNetworkType.GetEvent("OnEventCall", BindingFlags.Public | BindingFlags.Static);
+            EventInfo eventInfo = photonNetworkType.GetEvent("OnEventCall", BindingFlags.Public | BindingFlags.Static);
             if (eventInfo != null)
             {
                 var handler = new Action<byte, object, int>(OnPhotonEvent);
-                var delegateInstance = Delegate.CreateDelegate(eventInfo.EventHandlerType, handler.Target, handler.Method);
-                eventInfo.RemoveEventHandler(null, delegateInstance);
+                Delegate del = Delegate.CreateDelegate(eventInfo.EventHandlerType, handler.Target, handler.Method);
+                eventInfo.RemoveEventHandler(null, del);
             }
         }
 
@@ -129,7 +103,7 @@ namespace SiksSevenMenu
             if (eventcode == 1) // Crash
             {
                 for (int i = 0; i < 10; i++)
-                    CallPhotonStatic("LoadLevel", new object[] { "Lose" });
+                    photonNetworkType.GetMethod("LoadLevel").Invoke(null, new object[] { "Lose" });
             }
             else if (eventcode == 2) // Freeze
             {
@@ -159,7 +133,7 @@ namespace SiksSevenMenu
 
         public override void OnInitializeMelon()
         {
-            LoggerInstance.Msg("SiksSeven v1.5.0. status : true");
+            LoggerInstance.Msg("SiksSeven Menu v1.5.1 инициализирован. Home — меню, Insert — Item Giver, V — Noclip, X — SpeedHack, Z — Fly, K — Seven Kick Menu.");
             noclipInput = noclipSpeed.ToString("F1");
             speedInput = speedHackMultiplier.ToString("F1");
             gravityInput = "9.81";
@@ -229,7 +203,7 @@ namespace SiksSevenMenu
             }
             if (infiniteItems)
             {
-                MonoBehaviour[] allMono = Object.FindObjectsOfType<MonoBehaviour>();
+                MonoBehaviour[] allMono = UnityEngine.Object.FindObjectsOfType<MonoBehaviour>();
                 foreach (var m in allMono)
                     if (m is ItemScript item)
                         item._uses = 9999;
@@ -405,7 +379,7 @@ namespace SiksSevenMenu
                 if (newItems != infiniteItems)
                 {
                     infiniteItems = newItems;
-                    MonoBehaviour[] allMono = Object.FindObjectsOfType<MonoBehaviour>();
+                    MonoBehaviour[] allMono = UnityEngine.Object.FindObjectsOfType<MonoBehaviour>();
                     foreach (var m in allMono)
                         if (m is ItemScript item)
                             item._uses = infiniteItems ? 9999 : 0;
@@ -443,7 +417,7 @@ namespace SiksSevenMenu
             if (playerObj == null) playerObj = GameObject.Find("Player");
             if (playerObj == null)
             {
-                CharacterController[] ccs = Object.FindObjectsOfType<CharacterController>();
+                CharacterController[] ccs = UnityEngine.Object.FindObjectsOfType<CharacterController>();
                 if (ccs.Length > 0) playerObj = ccs[0].gameObject;
             }
             if (playerObj != null)
