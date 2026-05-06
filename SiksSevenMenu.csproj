@@ -37,6 +37,5 @@
     <Reference Include="Il2CppFusion.Runtime">
       <HintPath>Libs\Il2CppFusion.Runtime.dll</HintPath>
     </Reference>
-    <!-- Photon больше не подключаем явно, все вызовы через рантайм-рефлексию -->
   </ItemGroup>
 </Project>
