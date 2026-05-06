@@ -1,7 +1,6 @@
 using MelonLoader;
 using UnityEngine;
 using Il2Cpp;
-using System.Reflection;
 
 namespace SiksSevenMenu
 {
@@ -48,12 +47,11 @@ namespace SiksSevenMenu
             // --- Окно ---
             GUI.Box(windowRect, "Item Giver");
 
-            // --- Прямоугольник списка (клиентская область) ---
+            // --- Список с ручной прокруткой ---
             Rect listRect = new Rect(windowRect.x + 10, windowRect.y + 35, windowRect.width - 20, windowRect.height - 50);
             float contentHeight = itemNames.Length * itemHeight;
             float viewHeight = listRect.height;
 
-            // Прокрутка колёсиком, только если мышь над окном
             if (listRect.Contains(e.mousePosition) && e.type == EventType.ScrollWheel)
             {
                 scrollOffset += e.delta.y * 20f;
@@ -61,7 +59,6 @@ namespace SiksSevenMenu
             }
             scrollOffset = Mathf.Clamp(scrollOffset, 0f, Mathf.Max(0, contentHeight - viewHeight));
 
-            // Отрисовка видимых кнопок в абсолютных координатах
             int firstVisible = Mathf.FloorToInt(scrollOffset / itemHeight);
             int lastVisible = Mathf.CeilToInt((scrollOffset + viewHeight) / itemHeight);
             lastVisible = Mathf.Min(lastVisible, itemNames.Length - 1);
@@ -70,19 +67,19 @@ namespace SiksSevenMenu
             {
                 float yPos = listRect.y + i * itemHeight - scrollOffset;
                 Rect btnRect = new Rect(listRect.x, yPos, listRect.width - 12, itemHeight - 2);
-                if (btnRect.yMax > windowRect.y + 35 && btnRect.y < windowRect.yMax - 15) // дополнительная проверка видимости
+                if (btnRect.yMax > windowRect.y + 35 && btnRect.y < windowRect.yMax - 15)
                 {
                     if (GUI.Button(btnRect, itemNames[i]))
                     {
-                        GiveItem(itemNames[i]);
+                        SpawnItem(itemNames[i]);
                     }
                 }
             }
         }
 
-        private void GiveItem(string itemName)
+        private void SpawnItem(string itemName)
         {
-            // Найти префаб как GameObject
+            // 1. Ищем префаб по имени среди ВСЕХ ресурсов (даже неактивных)
             GameObject prefab = null;
             foreach (var go in Resources.FindObjectsOfTypeAll<GameObject>())
             {
@@ -92,44 +89,39 @@ namespace SiksSevenMenu
                     break;
                 }
             }
+
+            // 2. Если не нашли — ошибка, но мы не сдаёмся
             if (prefab == null)
             {
-                MelonLogger.Error("Предмет не найден: " + itemName);
+                MelonLogger.Error($"Префаб '{itemName}' не найден ни в мире, ни в ресурсах.");
                 return;
             }
 
-            GameObject newObj = Object.Instantiate(prefab);
-            ItemScript itemScr = newObj.GetComponent<ItemScript>();
-            if (itemScr == null)
+            // 3. Создаём экземпляр
+            GameObject newItem = Object.Instantiate(prefab);
+            if (newItem == null)
             {
-                MelonLogger.Error("ItemScript не найден на: " + itemName);
+                MelonLogger.Error($"Не удалось создать предмет '{itemName}'.");
                 return;
             }
 
+            // 4. Размещаем перед игроком
             GameObject player = GameObject.FindGameObjectWithTag("Player");
             if (player == null) player = GameObject.Find("Player");
-            if (player == null)
+
+            if (player != null && Camera.main != null)
             {
-                MelonLogger.Error("Игрок не найден, предмет создан в мире.");
-                return;
-            }
-
-            InventorySlotScript invSlot = player.GetComponent<InventorySlotScript>();
-            if (invSlot != null)
-            {
-                itemScr._inventoryScript = invSlot;
-
-                var addMethod = invSlot.GetType().GetMethod("AddItem", new System.Type[] { typeof(ItemScript) });
-                if (addMethod != null)
-                    addMethod.Invoke(invSlot, new object[] { itemScr });
-                else
-                    MelonLogger.Warning("AddItem не найден, но предмет привязан к инвентарю.");
-
-                MelonLogger.Msg($"Предмет {itemName} выдан.");
+                Vector3 spawnPos = player.transform.position
+                                   + Camera.main.transform.forward * 2.5f
+                                   + Vector3.up * 1.2f;
+                newItem.transform.position = spawnPos;
+                MelonLogger.Msg($"Предмет '{itemName}' заспавнен перед игроком.");
             }
             else
             {
-                MelonLogger.Warning("InventorySlotScript не найден — предмет лежит в мире.");
+                // Если игрок не найден — хотя бы в нуле координат
+                newItem.transform.position = new Vector3(0f, 1f, 0f);
+                MelonLogger.Warning($"Игрок не найден, предмет '{itemName}' создан в центре мира.");
             }
         }
     }
