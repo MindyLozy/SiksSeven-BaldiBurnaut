@@ -5,11 +5,11 @@ on:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
-  workflow_dispatch:  # позволяет запускать руками
+  workflow_dispatch:
 
 jobs:
   build:
-    runs-on: windows-latest  # MelonLoader под .NET Framework 4.7.2 собирается только на Windows
+    runs-on: windows-latest
 
     steps:
       - name: Check out repo
@@ -17,9 +17,6 @@ jobs:
 
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v2
-
-      - name: Restore NuGet packages (пусто, но для порядка)
-        run: nuget restore SiksSevenMod.sln  # если есть .sln; если нет – можно пропустить
 
       - name: Build mod
         run: msbuild SiksSevenMod.csproj /t:Build /p:Configuration=Release /p:Platform=x64
