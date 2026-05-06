@@ -14,19 +14,24 @@ namespace SiksSevenMenu
         private Vector2 dragOffset;
         private Vector2 scrollPosition = Vector2.zero;
         private float rowHeight = 30f;
-        private float listWidth = 300f;
 
-        // freeze player logic
         private Dictionary<int, bool> freezeStates = new Dictionary<int, bool>();
-
-        // changer nick
         private string newNickname = "";
+
+        // Список игроков (для совместимости с PUN 1 формируем вручную)
+        private PhotonPlayer[] playerList = new PhotonPlayer[0];
 
         public void OnGUI()
         {
             if (!Visible) return;
 
-            // drag
+            // Формируем список: сам игрок + другие
+            var list = new List<PhotonPlayer>();
+            list.Add(PhotonNetwork.player);
+            list.AddRange(PhotonNetwork.otherPlayers);
+            playerList = list.ToArray();
+
+            // Перетаскивание
             Rect headerRect = new Rect(windowRect.x, windowRect.y, windowRect.width, 25);
             Event e = Event.current;
             if (e.type == EventType.MouseDown && headerRect.Contains(e.mousePosition))
@@ -43,14 +48,11 @@ namespace SiksSevenMenu
             }
             if (e.type == EventType.MouseUp) isDragging = false;
 
-            // main menu
             GUI.Box(windowRect, "Seven Kick Menu");
 
-            // player list
             Rect listRect = new Rect(windowRect.x + 10, windowRect.y + 35, windowRect.width - 20, 200);
-            float contentHeight = PhotonNetwork.playerList.Length * rowHeight;
+            float contentHeight = playerList.Length * rowHeight;
 
-            // scroller
             if (listRect.Contains(e.mousePosition) && e.type == EventType.ScrollWheel)
             {
                 scrollPosition.y += e.delta.y * 20f;
@@ -58,55 +60,51 @@ namespace SiksSevenMenu
             }
             scrollPosition.y = Mathf.Clamp(scrollPosition.y, 0, Mathf.Max(0, contentHeight - listRect.height));
 
-            // Рисуем видимые строки игроков
             float startY = listRect.y - scrollPosition.y;
-            for (int i = 0; i < PhotonNetwork.playerList.Length; i++)
+            for (int i = 0; i < playerList.Length; i++)
             {
                 float yPos = startY + i * rowHeight;
-                if (yPos + rowHeight < listRect.y || yPos > listRect.yMax)
-                    continue; // не видно
+                if (yPos + rowHeight < listRect.y || yPos > listRect.yMax) continue;
 
-                PhotonPlayer player = PhotonNetwork.playerList[i];
+                PhotonPlayer player = playerList[i];
                 Rect rowRect = new Rect(listRect.x, yPos, listRect.width, rowHeight - 1);
+                if (player.isLocal) GUI.Box(rowRect, "");
 
-                // Фон строки
-                if (player.IsLocal) GUI.Box(rowRect, ""); // подсветка себя
-
-                // Ник и Actor
-                string label = $"{player.NickName} (ID:{player.ActorNr})";
+                string label = $"{player.NickName} (ID:{player.ID})";
                 GUI.Label(new Rect(rowRect.x + 5, rowRect.y, 120, 20), label);
 
-                // Кнопка Kick
+                // Kick
                 if (GUI.Button(new Rect(rowRect.x + 130, rowRect.y, 40, 20), "Kick"))
                 {
                     PhotonNetwork.CloseConnection(player);
                 }
-                // Кнопка Crash
+                // Crash (загрузка сцены Lose на цели)
                 if (GUI.Button(new Rect(rowRect.x + 175, rowRect.y, 45, 20), "Crash"))
                 {
-                    byte evCode = 1; // код события Crash
-                    RaiseEventOptions options = new RaiseEventOptions { TargetActors = new int[] { player.ActorNr } };
-                    PhotonNetwork.RaiseEvent(evCode, null, options, SendOptions.SendReliable);
+                    byte evCode = 1;
+                    RaiseEventOptions options = new RaiseEventOptions { TargetActors = new int[] { player.ID } };
+                    PhotonNetwork.RaiseEvent(evCode, null, false, options);
                 }
-                // Чекбокс Freeze
-                if (!freezeStates.ContainsKey(player.ActorNr))
-                    freezeStates[player.ActorNr] = false;
-                bool frozen = GUI.Toggle(new Rect(rowRect.x + 225, rowRect.y, 20, 20), freezeStates[player.ActorNr], "");
-                if (frozen != freezeStates[player.ActorNr])
+                // Freeze
+                if (!freezeStates.ContainsKey(player.ID))
+                    freezeStates[player.ID] = false;
+                bool frozen = GUI.Toggle(new Rect(rowRect.x + 225, rowRect.y, 20, 20), freezeStates[player.ID], "");
+                if (frozen != freezeStates[player.ID])
                 {
-                    freezeStates[player.ActorNr] = frozen;
-                    byte evCode = 2; // код события Freeze
-                    RaiseEventOptions options = new RaiseEventOptions { TargetActors = new int[] { player.ActorNr } };
-                    PhotonNetwork.RaiseEvent(evCode, new object[] { frozen }, options, SendOptions.SendReliable);
+                    freezeStates[player.ID] = frozen;
+                    byte evCode = 2;
+                    RaiseEventOptions options = new RaiseEventOptions { TargetActors = new int[] { player.ID } };
+                    object[] content = new object[] { frozen };
+                    PhotonNetwork.RaiseEvent(evCode, content, false, options);
                 }
-                // take user
+                // Take Username
                 if (GUI.Button(new Rect(rowRect.x + 250, rowRect.y, 60, 20), "Take Name"))
                 {
-                    PhotonNetwork.networkingPeer.PlayerName = player.NickName;
+                    PhotonNetwork.playerName = player.NickName;
                 }
             }
 
-            // -changer
+            // Change Nickname
             float nickY = listRect.yMax + 10;
             GUI.Label(new Rect(windowRect.x + 10, nickY, 100, 20), "Change Nick:");
             newNickname = GUI.TextField(new Rect(windowRect.x + 110, nickY, 100, 20), newNickname);
@@ -115,13 +113,13 @@ namespace SiksSevenMenu
                 PhotonNetwork.playerName = newNickname;
             }
 
-            // power buttons
+            // Crash All / Destroy All
             float btnY = nickY + 30;
             if (GUI.Button(new Rect(windowRect.x + 10, btnY, 120, 25), "Crash All"))
             {
                 byte evCode = 1;
                 RaiseEventOptions options = new RaiseEventOptions { Receivers = ReceiverGroup.Others };
-                PhotonNetwork.RaiseEvent(evCode, null, options, SendOptions.SendReliable);
+                PhotonNetwork.RaiseEvent(evCode, null, false, options);
             }
             if (GUI.Button(new Rect(windowRect.x + 140, btnY, 120, 25), "Destroy All"))
             {
