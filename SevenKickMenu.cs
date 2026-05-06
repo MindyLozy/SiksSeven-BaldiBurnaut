@@ -18,20 +18,17 @@ namespace SiksSevenMenu
         private Dictionary<int, bool> freezeStates = new Dictionary<int, bool>();
         private string newNickname = "";
 
-        // Список игроков (для совместимости с PUN 1 формируем вручную)
-        private PhotonPlayer[] playerList = new PhotonPlayer[0];
-
         public void OnGUI()
         {
             if (!Visible) return;
 
-            // Формируем список: сам игрок + другие
-            var list = new List<PhotonPlayer>();
-            list.Add(PhotonNetwork.player);
-            list.AddRange(PhotonNetwork.otherPlayers);
-            playerList = list.ToArray();
+            // list
+            dynamic[] playerList = new dynamic[PhotonNetwork.otherPlayers.Length + 1];
+            playerList[0] = PhotonNetwork.player;
+            for (int i = 0; i < PhotonNetwork.otherPlayers.Length; i++)
+                playerList[i + 1] = PhotonNetwork.otherPlayers[i];
 
-            // Перетаскивание
+            // drag
             Rect headerRect = new Rect(windowRect.x, windowRect.y, windowRect.width, 25);
             Event e = Event.current;
             if (e.type == EventType.MouseDown && headerRect.Contains(e.mousePosition))
@@ -53,6 +50,7 @@ namespace SiksSevenMenu
             Rect listRect = new Rect(windowRect.x + 10, windowRect.y + 35, windowRect.width - 20, 200);
             float contentHeight = playerList.Length * rowHeight;
 
+            // scroll
             if (listRect.Contains(e.mousePosition) && e.type == EventType.ScrollWheel)
             {
                 scrollPosition.y += e.delta.y * 20f;
@@ -66,11 +64,16 @@ namespace SiksSevenMenu
                 float yPos = startY + i * rowHeight;
                 if (yPos + rowHeight < listRect.y || yPos > listRect.yMax) continue;
 
-                PhotonPlayer player = playerList[i];
+                dynamic player = playerList[i];
                 Rect rowRect = new Rect(listRect.x, yPos, listRect.width, rowHeight - 1);
-                if (player.isLocal) GUI.Box(rowRect, "");
 
-                string label = $"{player.NickName} (ID:{player.ID})";
+                bool isLocal = (bool)player.isLocal;
+                if (isLocal) GUI.Box(rowRect, ""); // user
+
+                string nick = (string)player.NickName;
+                int id = (int)player.ID;   // test
+
+                string label = $"{nick} (ID:{id})";
                 GUI.Label(new Rect(rowRect.x + 5, rowRect.y, 120, 20), label);
 
                 // Kick
@@ -78,33 +81,33 @@ namespace SiksSevenMenu
                 {
                     PhotonNetwork.CloseConnection(player);
                 }
-                // Crash (загрузка сцены Lose на цели)
+                // Crash
                 if (GUI.Button(new Rect(rowRect.x + 175, rowRect.y, 45, 20), "Crash"))
                 {
                     byte evCode = 1;
-                    RaiseEventOptions options = new RaiseEventOptions { TargetActors = new int[] { player.ID } };
+                    RaiseEventOptions options = new RaiseEventOptions { TargetActors = new int[] { id } };
                     PhotonNetwork.RaiseEvent(evCode, null, false, options);
                 }
-                // Freeze
-                if (!freezeStates.ContainsKey(player.ID))
-                    freezeStates[player.ID] = false;
-                bool frozen = GUI.Toggle(new Rect(rowRect.x + 225, rowRect.y, 20, 20), freezeStates[player.ID], "");
-                if (frozen != freezeStates[player.ID])
+                // freeze
+                if (!freezeStates.ContainsKey(id))
+                    freezeStates[id] = false;
+                bool frozen = GUI.Toggle(new Rect(rowRect.x + 225, rowRect.y, 20, 20), freezeStates[id], "");
+                if (frozen != freezeStates[id])
                 {
-                    freezeStates[player.ID] = frozen;
+                    freezeStates[id] = frozen;
                     byte evCode = 2;
-                    RaiseEventOptions options = new RaiseEventOptions { TargetActors = new int[] { player.ID } };
+                    RaiseEventOptions options = new RaiseEventOptions { TargetActors = new int[] { id } };
                     object[] content = new object[] { frozen };
                     PhotonNetwork.RaiseEvent(evCode, content, false, options);
                 }
                 // Take Username
                 if (GUI.Button(new Rect(rowRect.x + 250, rowRect.y, 60, 20), "Take Name"))
                 {
-                    PhotonNetwork.playerName = player.NickName;
+                    PhotonNetwork.playerName = nick;
                 }
             }
 
-            // Change Nickname
+            // nickname changer
             float nickY = listRect.yMax + 10;
             GUI.Label(new Rect(windowRect.x + 10, nickY, 100, 20), "Change Nick:");
             newNickname = GUI.TextField(new Rect(windowRect.x + 110, nickY, 100, 20), newNickname);
