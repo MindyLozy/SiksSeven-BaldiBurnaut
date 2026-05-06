@@ -17,7 +17,7 @@ namespace SiksSevenMenu
         private readonly string[] itemNames = new string[]
         {
             "Bsoda", "Apple", "Banana", "Quarter",
-            "GrapplingHook", "DirtyChalkEraser", "Present",
+            "GrapplingHook", "Dirty Chalk", "Present",
             "SafetyScissors", "SnowBall", "SwingingDoorLock",
             "Tape", "ZestyBar"
         };
@@ -26,7 +26,7 @@ namespace SiksSevenMenu
         {
             if (!Visible) return;
 
-            // --- Перетаскивание ---
+
             Rect headerRect = new Rect(windowRect.x, windowRect.y, windowRect.width, 25);
             Event e = Event.current;
             if (e.type == EventType.MouseDown && headerRect.Contains(e.mousePosition))
@@ -44,10 +44,10 @@ namespace SiksSevenMenu
             if (e.type == EventType.MouseUp)
                 isDragging = false;
 
-            // --- Окно ---
+            
             GUI.Box(windowRect, "Item Giver");
 
-            // --- Список с ручной прокруткой ---
+           
             Rect listRect = new Rect(windowRect.x + 10, windowRect.y + 35, windowRect.width - 20, windowRect.height - 50);
             float contentHeight = itemNames.Length * itemHeight;
             float viewHeight = listRect.height;
@@ -79,7 +79,7 @@ namespace SiksSevenMenu
 
         private void SpawnItem(string itemName)
         {
-            // 1. Ищем префаб по имени среди ВСЕХ ресурсов (даже неактивных)
+            // ищейка предметов
             GameObject prefab = null;
             foreach (var go in Resources.FindObjectsOfTypeAll<GameObject>())
             {
@@ -90,14 +90,14 @@ namespace SiksSevenMenu
                 }
             }
 
-            // 2. Если не нашли — ошибка, но мы не сдаёмся
+            // 2
             if (prefab == null)
             {
-                MelonLogger.Error($"prefab '{itemName}' not found in scene, not in resourses (gonna fix it)");
+                MelonLogger.Error($"prefab '{itemName}' not found in scene, not in resourses");
                 return;
             }
 
-            // 3. Создаём экземпляр
+            // 3
             GameObject newItem = Object.Instantiate(prefab);
             if (newItem == null)
             {
@@ -105,7 +105,7 @@ namespace SiksSevenMenu
                 return;
             }
 
-            // 4. Размещаем перед игроком
+            // создание
             GameObject player = GameObject.FindGameObjectWithTag("Player");
             if (player == null) player = GameObject.Find("Player");
 
@@ -119,7 +119,7 @@ namespace SiksSevenMenu
             }
             else
             {
-                // Если игрок не найден — хотя бы в нуле координат
+                // создание в центре карты
                 newItem.transform.position = new Vector3(0f, 1f, 0f);
                 MelonLogger.Warning($"player not found '{itemName}' spawned in center of map.");
             }
