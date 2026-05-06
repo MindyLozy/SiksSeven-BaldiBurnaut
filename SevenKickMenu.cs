@@ -1,6 +1,7 @@
 using MelonLoader;
 using UnityEngine;
 using Photon;
+using ExitGames.Client.Photon;
 using System.Collections.Generic;
 
 namespace SiksSevenMenu
@@ -22,13 +23,13 @@ namespace SiksSevenMenu
         {
             if (!Visible) return;
 
-            // list
+            // Собираем список игроков: я + остальные (PUN 1)
             dynamic[] playerList = new dynamic[PhotonNetwork.otherPlayers.Length + 1];
             playerList[0] = PhotonNetwork.player;
             for (int i = 0; i < PhotonNetwork.otherPlayers.Length; i++)
                 playerList[i + 1] = PhotonNetwork.otherPlayers[i];
 
-            // drag
+            // Перетаскивание
             Rect headerRect = new Rect(windowRect.x, windowRect.y, windowRect.width, 25);
             Event e = Event.current;
             if (e.type == EventType.MouseDown && headerRect.Contains(e.mousePosition))
@@ -50,7 +51,6 @@ namespace SiksSevenMenu
             Rect listRect = new Rect(windowRect.x + 10, windowRect.y + 35, windowRect.width - 20, 200);
             float contentHeight = playerList.Length * rowHeight;
 
-            // scroll
             if (listRect.Contains(e.mousePosition) && e.type == EventType.ScrollWheel)
             {
                 scrollPosition.y += e.delta.y * 20f;
@@ -68,10 +68,10 @@ namespace SiksSevenMenu
                 Rect rowRect = new Rect(listRect.x, yPos, listRect.width, rowHeight - 1);
 
                 bool isLocal = (bool)player.isLocal;
-                if (isLocal) GUI.Box(rowRect, ""); // user
+                if (isLocal) GUI.Box(rowRect, "");
 
                 string nick = (string)player.NickName;
-                int id = (int)player.ID;   // test
+                int id = (int)player.ID;
 
                 string label = $"{nick} (ID:{id})";
                 GUI.Label(new Rect(rowRect.x + 5, rowRect.y, 120, 20), label);
@@ -88,7 +88,7 @@ namespace SiksSevenMenu
                     RaiseEventOptions options = new RaiseEventOptions { TargetActors = new int[] { id } };
                     PhotonNetwork.RaiseEvent(evCode, null, false, options);
                 }
-                // freeze
+                // Freeze
                 if (!freezeStates.ContainsKey(id))
                     freezeStates[id] = false;
                 bool frozen = GUI.Toggle(new Rect(rowRect.x + 225, rowRect.y, 20, 20), freezeStates[id], "");
@@ -107,7 +107,7 @@ namespace SiksSevenMenu
                 }
             }
 
-            // nickname changer
+            // Change Nickname
             float nickY = listRect.yMax + 10;
             GUI.Label(new Rect(windowRect.x + 10, nickY, 100, 20), "Change Nick:");
             newNickname = GUI.TextField(new Rect(windowRect.x + 110, nickY, 100, 20), newNickname);
