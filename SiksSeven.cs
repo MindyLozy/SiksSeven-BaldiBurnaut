@@ -1,7 +1,7 @@
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(SiksSevenMenu.Main), "SiksSeven Menu", "1.0.0", "LolWorking")]
+[assembly: MelonInfo(typeof(SiksSevenMenu.Main), "SiksSeven Menu", "1.0.0", "eni")]
 [assembly: MelonGame(null, null)]
 
 namespace SiksSevenMenu
@@ -15,15 +15,14 @@ namespace SiksSevenMenu
         private float noclipSpeed = 10f;
         private float speedHackMultiplier = 2f;
 
-        // строки для текстовых полей
-        private string noclipSpeedStr = "10";
-        private string speedHackStr = "2";
+        // строки для текстовых полей (живые, не форматируются принудительно)
+        private string noclipInput = "10";
+        private string speedInput = "2";
 
         private GameObject playerObj;
         private bool playerCached = false;
 
-        // компоненты игрока
-        private MonoBehaviour fpsController;    // любой скрипт движения от первого лица
+        private MonoBehaviour fpsController;
         private Collider playerCollider;
         private CharacterController playerCC;
         private Rigidbody playerRB;
@@ -33,8 +32,8 @@ namespace SiksSevenMenu
         public override void OnInitializeMelon()
         {
             LoggerInstance.Msg("SiksSeven Menu инициализирован. Home — меню, V — Noclip, X — SpeedHack.");
-            noclipSpeedStr = noclipSpeed.ToString("F1");
-            speedHackStr = speedHackMultiplier.ToString("F1");
+            noclipInput = noclipSpeed.ToString("F1");
+            speedInput = speedHackMultiplier.ToString("F1");
         }
 
         public override void OnUpdate()
@@ -45,7 +44,6 @@ namespace SiksSevenMenu
                 if (!playerCached) return;
             }
 
-            // горячие клавиши
             if (Input.GetKeyDown(KeyCode.V))
             {
                 noclipEnabled = !noclipEnabled;
@@ -65,10 +63,9 @@ namespace SiksSevenMenu
                 UpdateCursorState();
             }
 
-            // ---- ноклип (свободный полёт) ----
+            // ---- ноклип ----
             if (noclipEnabled && playerObj != null)
             {
-                // отключаем стандартный контроллер, если ещё не выключен
                 if (fpsController != null && fpsController.enabled)
                     fpsController.enabled = false;
                 if (playerCC != null && playerCC.enabled)
@@ -76,7 +73,6 @@ namespace SiksSevenMenu
                 if (playerRB != null && playerRB.useGravity)
                     playerRB.useGravity = false;
 
-                // движение относительно камеры
                 if (Camera.main == null) return;
 
                 float moveF = Input.GetKey(KeyCode.W) ? 1f : 0f;
@@ -97,7 +93,7 @@ namespace SiksSevenMenu
                     playerObj.transform.position += direction * noclipSpeed * Time.unscaledDeltaTime;
                 }
             }
-            // ---- спидхак игрока (работает только когда ноклип выключен) ----
+            // ---- спидхак ----
             else if (speedHackEnabled && playerObj != null)
             {
                 float moveH = Input.GetAxis("Horizontal");
@@ -121,56 +117,68 @@ namespace SiksSevenMenu
             if (!menuVisible) return;
 
             float menuW = 300f, menuH = 260f;
-            float x = 20f;                     // от левого края
-            float y = 20f;                     // от верхнего края
+            float x = 20f;
+            float y = 20f;
 
             GUI.Box(new Rect(x, y, menuW, menuH), "");
-
             GUI.Label(new Rect(x + 10, y + 10, menuW - 20, 30), "SiksSeven Menu");
 
-            // кнопка Noclip
+            // Кнопка Noclip
             if (GUI.Button(new Rect(x + 10, y + 50, menuW - 20, 30), $"Noclip: {(noclipEnabled ? "ON" : "OFF")}"))
             {
                 noclipEnabled = !noclipEnabled;
                 ToggleNoclip(noclipEnabled);
             }
 
-            // кнопка SpeedHack
+            // Кнопка SpeedHack
             if (GUI.Button(new Rect(x + 10, y + 90, menuW - 20, 30), $"SpeedHack: {(speedHackEnabled ? "ON" : "OFF")}"))
             {
                 speedHackEnabled = !speedHackEnabled;
             }
 
-            // поле Noclip Speed
+            // ---------- Noclip Speed ----------
             GUI.Label(new Rect(x + 10, y + 135, 100, 20), "Noclip Speed:");
-            string newNoclipStr = GUI.TextField(new Rect(x + 120, y + 135, 70, 20), noclipSpeedStr);
-            if (newNoclipStr != noclipSpeedStr)
+            GUI.SetNextControlName("NoclipField");
+            string newNoclipInput = GUI.TextField(new Rect(x + 120, y + 135, 70, 20), noclipInput);
+            // сохраняем ввод только по Enter, если фокус на этом поле
+            if (Event.current.type == EventType.KeyDown && Event.current.keyCode == KeyCode.Return
+                && GUI.GetNameOfFocusedControl() == "NoclipField")
             {
-                if (float.TryParse(newNoclipStr, out float parsed))
+                if (float.TryParse(newNoclipInput, out float parsed))
                 {
                     noclipSpeed = Mathf.Clamp(parsed, 0.1f, 100f);
-                    noclipSpeedStr = noclipSpeed.ToString("F1");
+                    noclipInput = noclipSpeed.ToString("F1"); // форматируем только после подтверждения
                 }
                 else
                 {
-                    noclipSpeedStr = noclipSpeed.ToString("F1");
+                    noclipInput = noclipSpeed.ToString("F1"); // сброс на последнее рабочее
                 }
             }
-
-            // поле Speed Multiplier
-            GUI.Label(new Rect(x + 10, y + 165, 130, 20), "Speed Multiplier:");
-            string newSpeedStr = GUI.TextField(new Rect(x + 150, y + 165, 70, 20), speedHackStr);
-            if (newSpeedStr != speedHackStr)
+            else
             {
-                if (float.TryParse(newSpeedStr, out float parsed))
+                noclipInput = newNoclipInput; // разрешаем свободный ввод
+            }
+
+            // ---------- Speed Multiplier ----------
+            GUI.Label(new Rect(x + 10, y + 165, 130, 20), "Speed Multiplier:");
+            GUI.SetNextControlName("SpeedField");
+            string newSpeedInput = GUI.TextField(new Rect(x + 150, y + 165, 70, 20), speedInput);
+            if (Event.current.type == EventType.KeyDown && Event.current.keyCode == KeyCode.Return
+                && GUI.GetNameOfFocusedControl() == "SpeedField")
+            {
+                if (float.TryParse(newSpeedInput, out float parsed))
                 {
                     speedHackMultiplier = Mathf.Clamp(parsed, 0.1f, 20f);
-                    speedHackStr = speedHackMultiplier.ToString("F1");
+                    speedInput = speedHackMultiplier.ToString("F1");
                 }
                 else
                 {
-                    speedHackStr = speedHackMultiplier.ToString("F1");
+                    speedInput = speedHackMultiplier.ToString("F1");
                 }
+            }
+            else
+            {
+                speedInput = newSpeedInput;
             }
         }
 
@@ -181,14 +189,12 @@ namespace SiksSevenMenu
                 playerObj = GameObject.Find("Player");
             if (playerObj == null)
             {
-                // ищем любой объект с CharacterController
                 CharacterController[] ccs = GameObject.FindObjectsOfType<CharacterController>();
                 if (ccs != null && ccs.Length > 0)
                     playerObj = ccs[0].gameObject;
             }
             if (playerObj != null)
             {
-                // пробуем найти типичный контроллер от первого лица (имена могут различаться)
                 MonoBehaviour[] allMono = playerObj.GetComponents<MonoBehaviour>();
                 foreach (var m in allMono)
                 {
@@ -199,7 +205,6 @@ namespace SiksSevenMenu
                         break;
                     }
                 }
-
                 playerCollider = playerObj.GetComponent<Collider>();
                 playerCC = playerObj.GetComponent<CharacterController>();
                 playerRB = playerObj.GetComponent<Rigidbody>();
@@ -212,13 +217,9 @@ namespace SiksSevenMenu
         {
             if (enable)
             {
-                // при включении ноклипа отключаем всё стандартное управление
-                if (fpsController != null)
-                    fpsController.enabled = false;
-                if (playerCC != null)
-                    playerCC.enabled = false;
-                if (playerCollider != null)
-                    playerCollider.enabled = false;
+                if (fpsController != null) fpsController.enabled = false;
+                if (playerCC != null) playerCC.enabled = false;
+                if (playerCollider != null) playerCollider.enabled = false;
                 if (playerRB != null)
                 {
                     playerRB.useGravity = false;
@@ -227,15 +228,10 @@ namespace SiksSevenMenu
             }
             else
             {
-                // возвращаем обратно
-                if (fpsController != null)
-                    fpsController.enabled = true;
-                if (playerCC != null)
-                    playerCC.enabled = true;
-                if (playerCollider != null)
-                    playerCollider.enabled = true;
-                if (playerRB != null)
-                    playerRB.useGravity = true;
+                if (fpsController != null) fpsController.enabled = true;
+                if (playerCC != null) playerCC.enabled = true;
+                if (playerCollider != null) playerCollider.enabled = true;
+                if (playerRB != null) playerRB.useGravity = true;
             }
         }
 
@@ -256,7 +252,6 @@ namespace SiksSevenMenu
 
         public override void OnDeinitializeMelon()
         {
-            // возвращаем всё как было при выгрузке мода
             if (noclipEnabled)
             {
                 if (fpsController != null) fpsController.enabled = true;
