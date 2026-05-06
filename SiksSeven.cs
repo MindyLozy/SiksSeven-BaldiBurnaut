@@ -1,74 +1,68 @@
 using MelonLoader;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using Il2Cpp; // пространство имён игры (содержит Item, PlayerPrototypeScript и т.д.)
+using UnityEngine.Events;
+using Il2Cpp;
+using System.Collections.Generic;
 
-[assembly: MelonInfo(typeof(SiksSevenMenu.Main), "SiksSeven Menu", "1.1.0", "LOLWorking")]
+[assembly: MelonInfo(typeof(SiksSevenMenu.Main), "SiksSeven Menu", "1.1.1", "eni")]
 [assembly: MelonGame(null, null)]
 
 namespace SiksSevenMenu
 {
     public class Main : MelonMod
     {
-        // основные читы
         private bool noclipEnabled = false;
         private bool speedHackEnabled = false;
         private bool menuVisible = false;
-        private bool showItemGiver = false;    // окно Item Giver
+        private bool showItemGiver = false;
 
         private float noclipSpeed = 10f;
         private float speedHackMultiplier = 2f;
 
-        // строки ввода
         private string noclipInput = "10";
         private string speedInput = "2";
         private string gravityInput = "9.81";
         private string jumpInput = "2";
 
-        // дополнительные читы
         private bool infiniteStamina = false;
         private bool infiniteItems = false;
 
-        // игрок
         private GameObject playerObj;
         private bool playerCached = false;
         private MonoBehaviour fpsController;
         private Collider playerCollider;
         private CharacterController playerCC;
         private Rigidbody playerRB;
-        private PlayerPrototypeScript playerPrototype; // для доступа к полям
+        private PlayerPrototypeScript playerPrototype;
 
         private CursorLockMode originalLockMode;
 
-        // Item Giver (окно)
         private ItemGiverWindow itemGiverWindow;
 
         public override void OnInitializeMelon()
         {
-            LoggerInstance.Msg("true : 67");
+            LoggerInstance.Msg("SiksSeven Menu v1.1.1 инициализирован. Home — меню, Insert — Item Giver, V — Noclip, X — SpeedHack.");
             noclipInput = noclipSpeed.ToString("F1");
             speedInput = speedHackMultiplier.ToString("F1");
             gravityInput = "9.81";
             jumpInput = "2";
 
-            // подписка на смену сцены
-            SceneManager.sceneLoaded += OnSceneLoaded;
+            // Подписка на смену сцены через IL2CPP-совместимый делегат
+            SceneManager.add_sceneLoaded(new UnityAction<Scene, LoadSceneMode>(OnSceneLoaded));
 
             itemGiverWindow = new ItemGiverWindow();
         }
 
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
-            playerCached = false; // сбросим кэш, чтобы найти нового игрока
+            playerCached = false;
             playerObj = null;
             fpsController = null;
             playerCollider = null;
             playerCC = null;
             playerRB = null;
             playerPrototype = null;
-
-            // повторно применим активные читы, как только игрок найдётся
-            // они применятся в следующем OnUpdate при CachePlayer()
         }
 
         public override void OnUpdate()
@@ -78,56 +72,54 @@ namespace SiksSevenMenu
                 CachePlayer();
                 if (playerCached)
                 {
-                    // когда игрок найден, применяем все активные читы
                     if (noclipEnabled) ToggleNoclip(true);
-                    // остальное применяется через флаги
                 }
                 if (!playerCached) return;
             }
 
-            // клавиши активации
+            // Горячие клавиши
             if (Input.GetKeyDown(KeyCode.V))
             {
                 noclipEnabled = !noclipEnabled;
                 LoggerInstance.Msg($"Noclip: {noclipEnabled}");
                 ToggleNoclip(noclipEnabled);
             }
-
             if (Input.GetKeyDown(KeyCode.X))
             {
                 speedHackEnabled = !speedHackEnabled;
                 LoggerInstance.Msg($"SpeedHack: {speedHackEnabled} (x{speedHackMultiplier})");
             }
-
             if (Input.GetKeyDown(KeyCode.Home))
             {
                 menuVisible = !menuVisible;
                 UpdateCursorState();
             }
-
             if (Input.GetKeyDown(KeyCode.Insert))
             {
                 showItemGiver = !showItemGiver;
+                itemGiverWindow.Visible = showItemGiver;
+                UpdateCursorState();
             }
 
-            // применение бесконечной стамины каждый кадр (на случай обновления игры)
+            // Infinite Stamina
             if (infiniteStamina && playerPrototype != null)
             {
                 playerPrototype.MaxStamina = 999999999f;
                 playerPrototype.stamina = 999999999f;
             }
 
-            // применение бесконечных предметов (ко всем ItemScript на сцене)
+            // Infinite Items (используем MonoBehaviour поиск и каст)
             if (infiniteItems)
             {
-                ItemScript[] items = GameObject.FindObjectsOfType<ItemScript>();
-                foreach (var item in items)
+                MonoBehaviour[] allMono = Object.FindObjectsOfType<MonoBehaviour>();
+                foreach (var m in allMono)
                 {
-                    item._uses = 9999;
+                    if (m is ItemScript item)
+                        item._uses = 9999;
                 }
             }
 
-            // ноклип
+            // Noclip
             if (noclipEnabled && playerObj != null)
             {
                 if (fpsController != null && fpsController.enabled)
@@ -146,180 +138,173 @@ namespace SiksSevenMenu
                 float moveUp = Input.GetKey(KeyCode.Space) ? 1f : 0f;
                 float moveDown = Input.GetKey(KeyCode.LeftControl) ? 1f : 0f;
 
-                Vector3 direction = Vector3.zero;
-                direction += Camera.main.transform.forward * (moveF - moveB);
-                direction += Camera.main.transform.right * (moveR - moveL);
-                direction += Camera.main.transform.up * (moveUp - moveDown);
-
-                if (direction.magnitude > 0.01f)
+                Vector3 dir = Vector3.zero;
+                dir += Camera.main.transform.forward * (moveF - moveB);
+                dir += Camera.main.transform.right * (moveR - moveL);
+                dir += Camera.main.transform.up * (moveUp - moveDown);
+                if (dir.magnitude > 0.01f)
                 {
-                    direction.Normalize();
-                    playerObj.transform.position += direction * noclipSpeed * Time.unscaledDeltaTime;
+                    dir.Normalize();
+                    playerObj.transform.position += dir * noclipSpeed * Time.unscaledDeltaTime;
                 }
             }
-            // спидхак (только когда ноклип выключен)
+            // SpeedHack
             else if (speedHackEnabled && playerObj != null)
             {
                 float moveH = Input.GetAxis("Horizontal");
                 float moveV = Input.GetAxis("Vertical");
                 if (Mathf.Abs(moveH) > 0.01f || Mathf.Abs(moveV) > 0.01f)
                 {
-                    Vector3 extraMovement = (playerObj.transform.forward * moveV + playerObj.transform.right * moveH).normalized
-                                            * (speedHackMultiplier - 1f) * Time.deltaTime * 5f;
+                    Vector3 extra = (playerObj.transform.forward * moveV + playerObj.transform.right * moveH).normalized
+                                    * (speedHackMultiplier - 1f) * Time.deltaTime * 5f;
                     if (playerCC != null && playerCC.enabled)
-                        playerCC.Move(extraMovement);
+                        playerCC.Move(extra);
                     else if (playerRB != null)
-                        playerRB.MovePosition(playerObj.transform.position + extraMovement);
+                        playerRB.MovePosition(playerObj.transform.position + extra);
                     else
-                        playerObj.transform.position += extraMovement;
+                        playerObj.transform.position += extra;
                 }
             }
         }
 
         public override void OnGUI()
         {
-            if (!menuVisible) return;
-
-            float menuW = 320f, menuH = 480f;
-            float x = 20f;
-            float y = 20f;
-
-            GUI.Box(new Rect(x, y, menuW, menuH), "");
-            GUI.Label(new Rect(x + 10, y + 10, menuW - 20, 30), "SiksSeven Menu");
-
-            int lineY = 50;
-
-            // Noclip
-            if (GUI.Button(new Rect(x + 10, y + lineY, menuW - 20, 30), $"Noclip: {(noclipEnabled ? "ON" : "OFF")}"))
+            if (menuVisible)
             {
-                noclipEnabled = !noclipEnabled;
-                ToggleNoclip(noclipEnabled);
-            }
-            lineY += 40;
+                float mw = 320f, mh = 480f;
+                float mx = 20f, my = 20f;
 
-            // SpeedHack
-            if (GUI.Button(new Rect(x + 10, y + lineY, menuW - 20, 30), $"SpeedHack: {(speedHackEnabled ? "ON" : "OFF")}"))
-            {
-                speedHackEnabled = !speedHackEnabled;
-            }
-            lineY += 40;
+                GUI.Box(new Rect(mx, my, mw, mh), "");
+                GUI.Label(new Rect(mx + 10, my + 10, mw - 20, 30), "SiksSeven Menu");
 
-            // Noclip Speed
-            GUI.Label(new Rect(x + 10, y + lineY, 100, 20), "Noclip Speed:");
-            noclipInput = GUI.TextField(new Rect(x + 120, y + lineY, 70, 20), noclipInput);
-            if (GUI.Button(new Rect(x + 200, y + lineY, 80, 20), "Apply"))
-            {
-                if (float.TryParse(noclipInput, out float val))
+                int yOff = 50;
+
+                // Noclip toggle
+                if (GUI.Button(new Rect(mx + 10, my + yOff, mw - 20, 30), $"Noclip: {(noclipEnabled ? "ON" : "OFF")}"))
                 {
-                    noclipSpeed = Mathf.Clamp(val, 0.1f, 100f);
-                    noclipInput = noclipSpeed.ToString("F1");
+                    noclipEnabled = !noclipEnabled;
+                    ToggleNoclip(noclipEnabled);
                 }
-                else noclipInput = noclipSpeed.ToString("F1");
-            }
-            lineY += 30;
+                yOff += 40;
 
-            // Speed Multiplier
-            GUI.Label(new Rect(x + 10, y + lineY, 130, 20), "Speed Multiplier:");
-            speedInput = GUI.TextField(new Rect(x + 150, y + lineY, 70, 20), speedInput);
-            if (GUI.Button(new Rect(x + 230, y + lineY, 50, 20), "Apply"))
-            {
-                if (float.TryParse(speedInput, out float val))
+                // SpeedHack toggle
+                if (GUI.Button(new Rect(mx + 10, my + yOff, mw - 20, 30), $"SpeedHack: {(speedHackEnabled ? "ON" : "OFF")}"))
                 {
-                    speedHackMultiplier = Mathf.Clamp(val, 0.1f, 20f);
-                    speedInput = speedHackMultiplier.ToString("F1");
+                    speedHackEnabled = !speedHackEnabled;
                 }
-                else speedInput = speedHackMultiplier.ToString("F1");
-            }
-            lineY += 40;
+                yOff += 40;
 
-            // Player Gravity
-            GUI.Label(new Rect(x + 10, y + lineY, 100, 20), "Player Gravity:");
-            gravityInput = GUI.TextField(new Rect(x + 120, y + lineY, 70, 20), gravityInput);
-            if (GUI.Button(new Rect(x + 200, y + lineY, 80, 20), "Apply"))
-            {
-                if (float.TryParse(gravityInput, out float val))
+                // Noclip Speed
+                GUI.Label(new Rect(mx + 10, my + yOff, 100, 20), "Noclip Speed:");
+                noclipInput = GUI.TextField(new Rect(mx + 120, my + yOff, 70, 20), noclipInput);
+                if (GUI.Button(new Rect(mx + 200, my + yOff, 80, 20), "Apply"))
                 {
+                    if (float.TryParse(noclipInput, out float v))
+                    {
+                        noclipSpeed = Mathf.Clamp(v, 0.1f, 100f);
+                        noclipInput = noclipSpeed.ToString("F1");
+                    }
+                    else noclipInput = noclipSpeed.ToString("F1");
+                }
+                yOff += 30;
+
+                // Speed Multiplier
+                GUI.Label(new Rect(mx + 10, my + yOff, 130, 20), "Speed Multiplier:");
+                speedInput = GUI.TextField(new Rect(mx + 150, my + yOff, 70, 20), speedInput);
+                if (GUI.Button(new Rect(mx + 230, my + yOff, 50, 20), "Apply"))
+                {
+                    if (float.TryParse(speedInput, out float v))
+                    {
+                        speedHackMultiplier = Mathf.Clamp(v, 0.1f, 20f);
+                        speedInput = speedHackMultiplier.ToString("F1");
+                    }
+                    else speedInput = speedHackMultiplier.ToString("F1");
+                }
+                yOff += 40;
+
+                // Gravity
+                GUI.Label(new Rect(mx + 10, my + yOff, 100, 20), "Player Gravity:");
+                gravityInput = GUI.TextField(new Rect(mx + 120, my + yOff, 70, 20), gravityInput);
+                if (GUI.Button(new Rect(mx + 200, my + yOff, 80, 20), "Apply"))
+                {
+                    if (float.TryParse(gravityInput, out float v) && playerPrototype != null)
+                    {
+                        playerPrototype.MainGravity = v;
+                        gravityInput = v.ToString("F2");
+                    }
+                    else gravityInput = (playerPrototype != null ? playerPrototype.MainGravity : 9.81f).ToString("F2");
+                }
+                yOff += 40;
+
+                // Jump Height
+                GUI.Label(new Rect(mx + 10, my + yOff, 100, 20), "Jump Height:");
+                jumpInput = GUI.TextField(new Rect(mx + 120, my + yOff, 70, 20), jumpInput);
+                if (GUI.Button(new Rect(mx + 200, my + yOff, 80, 20), "Apply"))
+                {
+                    if (float.TryParse(jumpInput, out float v) && playerPrototype != null)
+                    {
+                        playerPrototype._jumpHeight = v;
+                        jumpInput = v.ToString("F1");
+                    }
+                    else jumpInput = (playerPrototype != null ? playerPrototype._jumpHeight : 2f).ToString("F1");
+                }
+                yOff += 40;
+
+                // Infinite Stamina
+                bool newStamina = GUI.Toggle(new Rect(mx + 10, my + yOff, 200, 20), infiniteStamina, "Infinite Stamina");
+                if (newStamina != infiniteStamina)
+                {
+                    infiniteStamina = newStamina;
                     if (playerPrototype != null)
                     {
-                        playerPrototype.MainGravity = val;
-                        gravityInput = val.ToString("F2");
+                        if (infiniteStamina)
+                        {
+                            playerPrototype.MaxStamina = 999999999f;
+                            playerPrototype.stamina = 999999999f;
+                        }
+                        else
+                        {
+                            playerPrototype.MaxStamina = 100f;
+                            playerPrototype.stamina = 100f;
+                        }
                     }
                 }
-                else gravityInput = (playerPrototype != null ? playerPrototype.MainGravity : 9.81f).ToString("F2");
-            }
-            lineY += 40;
+                yOff += 30;
 
-            // Jump Height
-            GUI.Label(new Rect(x + 10, y + lineY, 100, 20), "Jump Height:");
-            jumpInput = GUI.TextField(new Rect(x + 120, y + lineY, 70, 20), jumpInput);
-            if (GUI.Button(new Rect(x + 200, y + lineY, 80, 20), "Apply"))
-            {
-                if (float.TryParse(jumpInput, out float val))
+                // Infinite Items
+                bool newItems = GUI.Toggle(new Rect(mx + 10, my + yOff, 200, 20), infiniteItems, "Infinite Items");
+                if (newItems != infiniteItems)
                 {
-                    if (playerPrototype != null)
+                    infiniteItems = newItems;
+                    MonoBehaviour[] allMono = Object.FindObjectsOfType<MonoBehaviour>();
+                    foreach (var m in allMono)
                     {
-                        playerPrototype._jumpHeight = val;
-                        jumpInput = val.ToString("F1");
+                        if (m is ItemScript item)
+                            item._uses = infiniteItems ? 9999 : 0;
                     }
                 }
-                else jumpInput = (playerPrototype != null ? playerPrototype._jumpHeight : 2f).ToString("F1");
             }
-            lineY += 40;
 
-            // Infinite Stamina (чекбокс)
-            bool newStamina = GUI.Toggle(new Rect(x + 10, y + lineY, 200, 20), infiniteStamina, "Infinite Stamina");
-            if (newStamina != infiniteStamina)
-            {
-                infiniteStamina = newStamina;
-                if (playerPrototype != null)
-                {
-                    if (infiniteStamina)
-                    {
-                        playerPrototype.MaxStamina = 999999999f;
-                        playerPrototype.stamina = 999999999f;
-                    }
-                    else
-                    {
-                        playerPrototype.MaxStamina = 100f;
-                        playerPrototype.stamina = 100f;
-                    }
-                }
-            }
-            lineY += 30;
-
-            // Infinite Items (чекбокс)
-            bool newItems = GUI.Toggle(new Rect(x + 10, y + lineY, 200, 20), infiniteItems, "Infinite Items");
-            if (newItems != infiniteItems)
-            {
-                infiniteItems = newItems;
-                ItemScript[] items = GameObject.FindObjectsOfType<ItemScript>();
-                foreach (var item in items)
-                {
-                    item._uses = infiniteItems ? 9999 : 0;
-                }
-            }
-            lineY += 30;
+            // Item Giver окно
+            if (showItemGiver)
+                itemGiverWindow.OnGUI();
         }
 
         private void CachePlayer()
         {
             playerObj = GameObject.FindGameObjectWithTag("Player");
-            if (playerObj == null)
-                playerObj = GameObject.Find("Player");
+            if (playerObj == null) playerObj = GameObject.Find("Player");
             if (playerObj == null)
             {
-                CharacterController[] ccs = GameObject.FindObjectsOfType<CharacterController>();
-                if (ccs != null && ccs.Length > 0)
-                    playerObj = ccs[0].gameObject;
+                CharacterController[] ccs = Object.FindObjectsOfType<CharacterController>();
+                if (ccs.Length > 0) playerObj = ccs[0].gameObject;
             }
             if (playerObj != null)
             {
-                // поиск FPS-контроллера
-                MonoBehaviour[] monos = playerObj.GetComponents<MonoBehaviour>();
-                foreach (var m in monos)
+                foreach (var m in playerObj.GetComponents<MonoBehaviour>())
                 {
-                    string t = m.GetType().Name;
-                    if (t.Contains("FPScontroller") || t.Contains("FirstPersonController") || t.Contains("PlayerController"))
+                    string n = m.GetType().Name;
+                    if (n.Contains("FPScontroller") || n.Contains("FirstPersonController") || n.Contains("PlayerController"))
                     {
                         fpsController = m;
                         break;
@@ -329,10 +314,8 @@ namespace SiksSevenMenu
                 playerCC = playerObj.GetComponent<CharacterController>();
                 playerRB = playerObj.GetComponent<Rigidbody>();
                 playerPrototype = playerObj.GetComponent<PlayerPrototypeScript>();
-
                 playerCached = true;
-                LoggerInstance.Msg("Игрок найден: " + playerObj.name +
-                    (playerPrototype != null ? " + PlayerPrototypeScript" : ""));
+                LoggerInstance.Msg("Игрок найден: " + playerObj.name);
             }
         }
 
@@ -343,11 +326,7 @@ namespace SiksSevenMenu
                 if (fpsController != null) fpsController.enabled = false;
                 if (playerCC != null) playerCC.enabled = false;
                 if (playerCollider != null) playerCollider.enabled = false;
-                if (playerRB != null)
-                {
-                    playerRB.useGravity = false;
-                    playerRB.velocity = Vector3.zero;
-                }
+                if (playerRB != null) { playerRB.useGravity = false; playerRB.velocity = Vector3.zero; }
             }
             else
             {
@@ -362,9 +341,12 @@ namespace SiksSevenMenu
         {
             if (menuVisible || showItemGiver)
             {
-                originalLockMode = Cursor.lockState;
-                Cursor.lockState = CursorLockMode.None;
-                Cursor.visible = true;
+                if (!Cursor.visible)
+                {
+                    originalLockMode = Cursor.lockState;
+                    Cursor.lockState = CursorLockMode.None;
+                    Cursor.visible = true;
+                }
             }
             else
             {
@@ -384,7 +366,7 @@ namespace SiksSevenMenu
             }
             Cursor.lockState = originalLockMode;
             Cursor.visible = true;
-            SceneManager.sceneLoaded -= OnSceneLoaded;
+            SceneManager.remove_sceneLoaded(new UnityAction<Scene, LoadSceneMode>(OnSceneLoaded));
         }
     }
 }
