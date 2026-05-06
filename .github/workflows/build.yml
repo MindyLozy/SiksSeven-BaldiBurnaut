@@ -1,4 +1,4 @@
-name: Build SiksSevenMod
+name: Build SiksSevenMenu
 
 on:
   push:
@@ -15,14 +15,16 @@ jobs:
       - name: Check out repo
         uses: actions/checkout@v4
 
-      - name: Setup MSBuild
-        uses: microsoft/setup-msbuild@v2
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.x'  # или '9.x', '7.x', главное чтобы была поддержка net472
 
       - name: Build mod
-        run: msbuild SiksSevenMenu.csproj /t:Build /p:Configuration=Release /p:Platform=x64
+        run: dotnet build SiksSevenMenu.csproj -c Release -p:Platform=x64
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: SiksSevenMod.dll
-          path: bin/x64/Release/SiksSevenMod.dll
+          name: SiksSevenMenu.dll
+          path: "**/bin/x64/Release/net472/SiksSevenMenu.dll"
