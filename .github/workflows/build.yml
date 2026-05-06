@@ -1,0 +1,31 @@
+name: Build SiksSevenMod
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:  # позволяет запускать руками
+
+jobs:
+  build:
+    runs-on: windows-latest  # MelonLoader под .NET Framework 4.7.2 собирается только на Windows
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Restore NuGet packages (пусто, но для порядка)
+        run: nuget restore SiksSevenMod.sln  # если есть .sln; если нет – можно пропустить
+
+      - name: Build mod
+        run: msbuild SiksSevenMod.csproj /t:Build /p:Configuration=Release /p:Platform=x64
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SiksSevenMod.dll
+          path: bin/x64/Release/SiksSevenMod.dll
