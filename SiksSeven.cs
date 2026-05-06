@@ -1,11 +1,9 @@
 using MelonLoader;
 using UnityEngine;
-using UnityEngine.SceneManagement;
-using UnityEngine.Events;
 using Il2Cpp;
 using System.Collections.Generic;
 
-[assembly: MelonInfo(typeof(SiksSevenMenu.Main), "SiksSeven Menu", "1.1.1", "eni")]
+[assembly: MelonInfo(typeof(SiksSevenMenu.Main), "SiksSeven Menu", "1.1.2", "eni")]
 [assembly: MelonGame(null, null)]
 
 namespace SiksSevenMenu
@@ -37,47 +35,34 @@ namespace SiksSevenMenu
         private PlayerPrototypeScript playerPrototype;
 
         private CursorLockMode originalLockMode;
-
         private ItemGiverWindow itemGiverWindow;
 
         public override void OnInitializeMelon()
         {
-            LoggerInstance.Msg("SiksSeven Menu v1.1.1 инициализирован. Home — меню, Insert — Item Giver, V — Noclip, X — SpeedHack.");
+            LoggerInstance.Msg("SiksSeven Menu v1.1.2 инициализирован. Home — меню, Insert — Item Giver, V — Noclip, X — SpeedHack.");
             noclipInput = noclipSpeed.ToString("F1");
             speedInput = speedHackMultiplier.ToString("F1");
             gravityInput = "9.81";
             jumpInput = "2";
 
-            // Подписка на смену сцены через IL2CPP-совместимый делегат
-            SceneManager.add_sceneLoaded(new UnityAction<Scene, LoadSceneMode>(OnSceneLoaded));
-
             itemGiverWindow = new ItemGiverWindow();
-        }
-
-        private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
-        {
-            playerCached = false;
-            playerObj = null;
-            fpsController = null;
-            playerCollider = null;
-            playerCC = null;
-            playerRB = null;
-            playerPrototype = null;
         }
 
         public override void OnUpdate()
         {
-            if (!playerCached)
+            // Авто-восстановление игрока при смене сцены
+            if (!playerCached || playerObj == null)
             {
                 CachePlayer();
                 if (playerCached)
                 {
+                    // повторно применим активные читы
                     if (noclipEnabled) ToggleNoclip(true);
                 }
-                if (!playerCached) return;
             }
+            if (!playerCached) return;
 
-            // Горячие клавиши
+            // Клавиши
             if (Input.GetKeyDown(KeyCode.V))
             {
                 noclipEnabled = !noclipEnabled;
@@ -108,7 +93,7 @@ namespace SiksSevenMenu
                 playerPrototype.stamina = 999999999f;
             }
 
-            // Infinite Items (используем MonoBehaviour поиск и каст)
+            // Infinite Items
             if (infiniteItems)
             {
                 MonoBehaviour[] allMono = Object.FindObjectsOfType<MonoBehaviour>();
@@ -179,7 +164,6 @@ namespace SiksSevenMenu
 
                 int yOff = 50;
 
-                // Noclip toggle
                 if (GUI.Button(new Rect(mx + 10, my + yOff, mw - 20, 30), $"Noclip: {(noclipEnabled ? "ON" : "OFF")}"))
                 {
                     noclipEnabled = !noclipEnabled;
@@ -187,14 +171,12 @@ namespace SiksSevenMenu
                 }
                 yOff += 40;
 
-                // SpeedHack toggle
                 if (GUI.Button(new Rect(mx + 10, my + yOff, mw - 20, 30), $"SpeedHack: {(speedHackEnabled ? "ON" : "OFF")}"))
                 {
                     speedHackEnabled = !speedHackEnabled;
                 }
                 yOff += 40;
 
-                // Noclip Speed
                 GUI.Label(new Rect(mx + 10, my + yOff, 100, 20), "Noclip Speed:");
                 noclipInput = GUI.TextField(new Rect(mx + 120, my + yOff, 70, 20), noclipInput);
                 if (GUI.Button(new Rect(mx + 200, my + yOff, 80, 20), "Apply"))
@@ -208,7 +190,6 @@ namespace SiksSevenMenu
                 }
                 yOff += 30;
 
-                // Speed Multiplier
                 GUI.Label(new Rect(mx + 10, my + yOff, 130, 20), "Speed Multiplier:");
                 speedInput = GUI.TextField(new Rect(mx + 150, my + yOff, 70, 20), speedInput);
                 if (GUI.Button(new Rect(mx + 230, my + yOff, 50, 20), "Apply"))
@@ -222,7 +203,6 @@ namespace SiksSevenMenu
                 }
                 yOff += 40;
 
-                // Gravity
                 GUI.Label(new Rect(mx + 10, my + yOff, 100, 20), "Player Gravity:");
                 gravityInput = GUI.TextField(new Rect(mx + 120, my + yOff, 70, 20), gravityInput);
                 if (GUI.Button(new Rect(mx + 200, my + yOff, 80, 20), "Apply"))
@@ -236,7 +216,6 @@ namespace SiksSevenMenu
                 }
                 yOff += 40;
 
-                // Jump Height
                 GUI.Label(new Rect(mx + 10, my + yOff, 100, 20), "Jump Height:");
                 jumpInput = GUI.TextField(new Rect(mx + 120, my + yOff, 70, 20), jumpInput);
                 if (GUI.Button(new Rect(mx + 200, my + yOff, 80, 20), "Apply"))
@@ -250,38 +229,26 @@ namespace SiksSevenMenu
                 }
                 yOff += 40;
 
-                // Infinite Stamina
                 bool newStamina = GUI.Toggle(new Rect(mx + 10, my + yOff, 200, 20), infiniteStamina, "Infinite Stamina");
                 if (newStamina != infiniteStamina)
                 {
                     infiniteStamina = newStamina;
                     if (playerPrototype != null)
                     {
-                        if (infiniteStamina)
-                        {
-                            playerPrototype.MaxStamina = 999999999f;
-                            playerPrototype.stamina = 999999999f;
-                        }
-                        else
-                        {
-                            playerPrototype.MaxStamina = 100f;
-                            playerPrototype.stamina = 100f;
-                        }
+                        playerPrototype.MaxStamina = infiniteStamina ? 999999999f : 100f;
+                        playerPrototype.stamina = infiniteStamina ? 999999999f : 100f;
                     }
                 }
                 yOff += 30;
 
-                // Infinite Items
                 bool newItems = GUI.Toggle(new Rect(mx + 10, my + yOff, 200, 20), infiniteItems, "Infinite Items");
                 if (newItems != infiniteItems)
                 {
                     infiniteItems = newItems;
                     MonoBehaviour[] allMono = Object.FindObjectsOfType<MonoBehaviour>();
                     foreach (var m in allMono)
-                    {
                         if (m is ItemScript item)
                             item._uses = infiniteItems ? 9999 : 0;
-                    }
                 }
             }
 
@@ -341,12 +308,9 @@ namespace SiksSevenMenu
         {
             if (menuVisible || showItemGiver)
             {
-                if (!Cursor.visible)
-                {
-                    originalLockMode = Cursor.lockState;
-                    Cursor.lockState = CursorLockMode.None;
-                    Cursor.visible = true;
-                }
+                originalLockMode = Cursor.lockState;
+                Cursor.lockState = CursorLockMode.None;
+                Cursor.visible = true;
             }
             else
             {
@@ -366,7 +330,6 @@ namespace SiksSevenMenu
             }
             Cursor.lockState = originalLockMode;
             Cursor.visible = true;
-            SceneManager.remove_sceneLoaded(new UnityAction<Scene, LoadSceneMode>(OnSceneLoaded));
         }
     }
 }
