@@ -1,35 +1,33 @@
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(SiksSevenMod.Main), "SiksSeven Menu", "1.0.0", "eni")]
-[assembly: MelonGame(null, null)] // работает в любой Unity-игре
+[assembly: MelonInfo(typeof(SiksSevenMenu.Main), "SiksSeven Menu", "1.0.0", "LolWorking")]
+[assembly: MelonGame(null, null)]
 
-namespace SiksSevenMod
+namespace SiksSevenMenu
 {
     public class Main : MelonMod
     {
-        // ---------- чит-флаги ----------
         private bool noclipEnabled = false;
         private bool speedHackEnabled = false;
         private bool menuVisible = false;
 
-        // ---------- настройки ----------
         private float noclipSpeed = 10f;
         private float speedHackMultiplier = 2f;
 
-        // ---------- кеш игрока ----------
         private GameObject playerObj;
-        private Collider playerCollider;
         private bool playerCached = false;
 
-        // ---------- сохранение оригинальных значений ----------
-        private float originalTimeScale = 1f;
+        // Компоненты игрока
+        private Collider playerCollider;
+        private CharacterController playerCC;
+        private Rigidbody playerRB;
+
         private CursorLockMode originalLockMode;
 
         public override void OnInitializeMelon()
         {
             LoggerInstance.Msg("SiksSeven Menu инициализирован. Home — меню, V — Noclip, X — SpeedHack.");
-            originalTimeScale = Time.timeScale;
         }
 
         public override void OnUpdate()
@@ -37,10 +35,10 @@ namespace SiksSevenMod
             if (!playerCached)
             {
                 CachePlayer();
-                if (!playerCached) return; // игрок ещё не найден, ничего не делаем
+                if (!playerCached) return;
             }
 
-            // ---- горячие клавиши ----
+            // Горячие клавиши
             if (Input.GetKeyDown(KeyCode.V))
             {
                 noclipEnabled = !noclipEnabled;
@@ -52,7 +50,6 @@ namespace SiksSevenMod
             {
                 speedHackEnabled = !speedHackEnabled;
                 LoggerInstance.Msg($"SpeedHack: {speedHackEnabled} (x{speedHackMultiplier})");
-                Time.timeScale = speedHackEnabled ? speedHackMultiplier : originalTimeScale;
             }
 
             if (Input.GetKeyDown(KeyCode.Home))
@@ -61,7 +58,7 @@ namespace SiksSevenMod
                 UpdateCursorState();
             }
 
-            // ---- движение при ноклипе ----
+            // ---- движение ноклипа ----
             if (noclipEnabled && playerObj != null)
             {
                 float moveH = Input.GetAxis("Horizontal");
@@ -71,7 +68,30 @@ namespace SiksSevenMod
 
                 Vector3 direction = (playerObj.transform.forward * moveV + playerObj.transform.right * moveH
                                      + Vector3.up * (moveUp - moveDown)).normalized;
-                playerObj.transform.position += direction * noclipSpeed * Time.unscaledDeltaTime; // unscaled, чтобы не зависеть от timeScale
+                playerObj.transform.position += direction * noclipSpeed * Time.unscaledDeltaTime;
+            }
+            // ---- спидхак игрока (только когда ноклип выключен) ----
+            else if (speedHackEnabled && playerObj != null)
+            {
+                float moveH = Input.GetAxis("Horizontal");
+                float moveV = Input.GetAxis("Vertical");
+                if (Mathf.Abs(moveH) > 0.01f || Mathf.Abs(moveV) > 0.01f)
+                {
+                    Vector3 extraMovement = (playerObj.transform.forward * moveV + playerObj.transform.right * moveH).normalized
+                                            * (speedHackMultiplier - 1f) * Time.deltaTime * 5f; // 5f — примерная базовая скорость
+                    if (playerCC != null)
+                    {
+                        playerCC.Move(extraMovement);
+                    }
+                    else if (playerRB != null)
+                    {
+                        playerRB.MovePosition(playerObj.transform.position + extraMovement);
+                    }
+                    else
+                    {
+                        playerObj.transform.position += extraMovement;
+                    }
+                }
             }
         }
 
@@ -79,58 +99,55 @@ namespace SiksSevenMod
         {
             if (!menuVisible) return;
 
-            // простая рамка меню
             float menuW = 280f, menuH = 220f;
             float x = (Screen.width - menuW) * 0.5f;
             float y = (Screen.height - menuH) * 0.5f;
 
+            // Фон меню
             GUI.Box(new Rect(x, y, menuW, menuH), "");
-            GUILayout.BeginArea(new Rect(x + 10, y + 10, menuW - 20, menuH - 20));
 
-            GUILayout.Label("<b><size=18>SiksSeven Menu</size></b>");
-            GUILayout.Space(10);
+            // Заголовок
+            GUI.Label(new Rect(x + 10, y + 10, menuW - 20, 30), "SiksSeven Menu");
 
-            // Noclip toggle
-            if (GUILayout.Button($"Noclip: {(noclipEnabled ? "ON" : "OFF")}", GUILayout.Height(30)))
+            // Кнопка Noclip
+            if (GUI.Button(new Rect(x + 10, y + 50, menuW - 20, 30), $"Noclip: {(noclipEnabled ? "ON" : "OFF")}"))
             {
                 noclipEnabled = !noclipEnabled;
                 ToggleNoclip(noclipEnabled);
             }
 
-            // SpeedHack toggle
-            if (GUILayout.Button($"SpeedHack: {(speedHackEnabled ? "ON" : "OFF")}", GUILayout.Height(30)))
+            // Кнопка SpeedHack
+            if (GUI.Button(new Rect(x + 10, y + 90, menuW - 20, 30), $"SpeedHack: {(speedHackEnabled ? "ON" : "OFF")}"))
             {
                 speedHackEnabled = !speedHackEnabled;
-                Time.timeScale = speedHackEnabled ? speedHackMultiplier : originalTimeScale;
             }
 
-            GUILayout.Space(10);
-            GUILayout.Label($"Noclip Speed: {noclipSpeed:F1}");
-            noclipSpeed = GUILayout.HorizontalSlider(noclipSpeed, 1f, 50f, GUILayout.Width(200));
+            // Слайдер Noclip Speed
+            GUI.Label(new Rect(x + 10, y + 130, 100, 20), $"Noclip Speed: {noclipSpeed:F1}");
+            noclipSpeed = GUI.HorizontalSlider(new Rect(x + 120, y + 135, 150, 20), noclipSpeed, 1f, 50f);
 
-            GUILayout.Label($"SpeedHack Multiplier: {speedHackMultiplier:F1}x");
-            float newMultiplier = GUILayout.HorizontalSlider(speedHackMultiplier, 0.1f, 10f, GUILayout.Width(200));
-            if (!Mathf.Approximately(newMultiplier, speedHackMultiplier))
-            {
-                speedHackMultiplier = newMultiplier;
-                if (speedHackEnabled)
-                    Time.timeScale = speedHackMultiplier;
-            }
-
-            GUILayout.EndArea();
+            // Слайдер SpeedHack Multiplier
+            GUI.Label(new Rect(x + 10, y + 160, 120, 20), $"Speed Multiplier: {speedHackMultiplier:F1}x");
+            speedHackMultiplier = GUI.HorizontalSlider(new Rect(x + 140, y + 165, 130, 20), speedHackMultiplier, 0.1f, 10f);
         }
 
         private void CachePlayer()
         {
+            // Пробуем найти игрока по тегу "Player", потом по имени, потом находим объект с CharacterController
             playerObj = GameObject.FindGameObjectWithTag("Player");
             if (playerObj == null)
-            {
-                // попробуем найти по имени (часто бывает "Player")
                 playerObj = GameObject.Find("Player");
+            if (playerObj == null)
+            {
+                CharacterController[] ccs = GameObject.FindObjectsOfType<CharacterController>();
+                if (ccs != null && ccs.Length > 0)
+                    playerObj = ccs[0].gameObject;
             }
             if (playerObj != null)
             {
                 playerCollider = playerObj.GetComponent<Collider>();
+                playerCC = playerObj.GetComponent<CharacterController>();
+                playerRB = playerObj.GetComponent<Rigidbody>();
                 playerCached = true;
                 LoggerInstance.Msg("Игрок найден: " + playerObj.name);
             }
@@ -138,15 +155,19 @@ namespace SiksSevenMod
 
         private void ToggleNoclip(bool enable)
         {
-            if (playerCollider != null)
-                playerCollider.enabled = !enable; // выключаем коллайдер, чтобы игрок летал сквозь стены
+            // Отключаем CharacterController, если есть
+            if (playerCC != null)
+                playerCC.enabled = !enable;
 
-            // если включаем ноклип, можно также убрать гравитацию и т.п.
-            Rigidbody rb = playerObj?.GetComponent<Rigidbody>();
-            if (rb != null)
+            // Отключаем коллайдер, если есть
+            if (playerCollider != null)
+                playerCollider.enabled = !enable;
+
+            // Отключаем гравитацию у Rigidbody, если есть
+            if (playerRB != null)
             {
-                rb.useGravity = !enable;
-                rb.velocity = Vector3.zero; // останавливаем
+                playerRB.useGravity = !enable;
+                if (enable) playerRB.velocity = Vector3.zero;
             }
         }
 
@@ -167,11 +188,12 @@ namespace SiksSevenMod
 
         public override void OnDeinitializeMelon()
         {
-            // сброс состояний при выгрузке
-            if (speedHackEnabled)
-                Time.timeScale = originalTimeScale;
+            if (noclipEnabled && playerCC != null)
+                playerCC.enabled = true;
             if (noclipEnabled && playerCollider != null)
                 playerCollider.enabled = true;
+            if (playerRB != null)
+                playerRB.useGravity = true;
             Cursor.lockState = originalLockMode;
             Cursor.visible = true;
         }
