@@ -1,6 +1,7 @@
 using MelonLoader;
 using UnityEngine;
 using Il2Cpp;
+using Photon; // Photon PUN 1
 
 [assembly: MelonInfo(typeof(SiksSevenMenu.Main), "SiksSeven Menu", "1.2.1", "LOLWorking")]
 [assembly: MelonGame(null, null)]
@@ -9,7 +10,6 @@ namespace SiksSevenMenu
 {
     public class Main : MelonMod
     {
-        // hacks
         private bool noclipEnabled = false;
         private bool speedHackEnabled = false;
         private bool menuVisible = false;
@@ -21,18 +21,15 @@ namespace SiksSevenMenu
         private float speedHackMultiplier = 2f;
         private float flySpeed = 10f;
 
-        // textboxes
         private string noclipInput = "10";
         private string speedInput = "2";
         private string gravityInput = "9.81";
         private string jumpInput = "2";
         private string flySpeedInput = "10";
 
-        //
         private bool infiniteStamina = false;
         private bool infiniteItems = false;
 
-        // local player
         private GameObject playerObj;
         private bool playerCached = false;
         private MonoBehaviour fpsController;
@@ -44,15 +41,13 @@ namespace SiksSevenMenu
         private float savedGravity = 9.81f;
         private CursorLockMode originalLockMode;
 
-        // window
         private ItemGiverWindow itemGiverWindow;
         private SevenKickMenuWindow kickMenu;
 
         public override void OnInitializeMelon()
         {
-            LoggerInstance.Msg("SiksSeven Menu v1.2.1 by LOLWorking инициализирован.");
-            LoggerInstance.Msg("F1 — главное меню, F2 — Item Giver, F3 — Seven Kick Menu.");
-            LoggerInstance.Msg("V — Noclip, X — SpeedHack, Z — Fly.");
+            LoggerInstance.Msg("SiksSeven v1.2.1 true");
+            LoggerInstance.Msg("injected.");
 
             noclipInput = noclipSpeed.ToString("F1");
             speedInput = speedHackMultiplier.ToString("F1");
@@ -63,19 +58,17 @@ namespace SiksSevenMenu
             itemGiverWindow = new ItemGiverWindow();
             kickMenu = new SevenKickMenuWindow();
 
-            // il2cpp photon
-            Il2Cpp.PhotonNetwork.OnEventCall += OnPhotonEvent;
+            PhotonNetwork.OnEventCall += OnPhotonEvent;
         }
 
-        // photon
         private void OnPhotonEvent(byte eventcode, object content, int senderid)
         {
-            if (eventcode == 1) // crasher
+            if (eventcode == 1) // Crash
             {
                 for (int i = 0; i < 10; i++)
-                    Il2Cpp.PhotonNetwork.LoadLevel("Lose");
+                    PhotonNetwork.LoadLevel("Lose");
             }
-            else if (eventcode == 2) // Freeze / Unfreeze
+            else if (eventcode == 2) // Freeze
             {
                 object[] args = content as object[];
                 if (args != null && args.Length > 0 && args[0] is bool frozen)
@@ -103,7 +96,6 @@ namespace SiksSevenMenu
 
         public override void OnUpdate()
         {
-            // 
             if (!playerCached || playerObj == null)
             {
                 CachePlayer();
@@ -115,7 +107,6 @@ namespace SiksSevenMenu
             }
             if (!playerCached) return;
 
-            // 
             if (Input.GetKeyDown(KeyCode.V))
             {
                 noclipEnabled = !noclipEnabled;
@@ -153,7 +144,6 @@ namespace SiksSevenMenu
                 UpdateCursorState();
             }
 
-            // 
             if (infiniteStamina && playerPrototype != null)
             {
                 playerPrototype.MaxStamina = 999999999f;
@@ -167,14 +157,13 @@ namespace SiksSevenMenu
                         item._uses = 9999;
             }
 
-            // 
+            // Noclip
             if (noclipEnabled && playerObj != null)
             {
                 if (fpsController != null && fpsController.enabled) fpsController.enabled = false;
                 if (playerCC != null) playerCC.enabled = false;
                 if (playerRB != null) playerRB.useGravity = false;
                 if (playerCollider != null) playerCollider.enabled = false;
-
                 if (Camera.main == null) return;
 
                 float moveF = Input.GetKey(KeyCode.W) ? 1f : 0f;
@@ -193,7 +182,7 @@ namespace SiksSevenMenu
                     playerObj.transform.position += dir * noclipSpeed * Time.unscaledDeltaTime;
                 }
             }
-            // ---------- Fly (полёт с коллизиями) ----------
+            // Fly
             else if (flyEnabled && playerObj != null)
             {
                 if (fpsController != null && fpsController.enabled) fpsController.enabled = false;
@@ -201,7 +190,6 @@ namespace SiksSevenMenu
                 if (playerCC != null) playerCC.enabled = true;
                 if (playerRB != null) { playerRB.useGravity = false; playerRB.isKinematic = true; }
                 if (playerPrototype != null) playerPrototype.MainGravity = 0f;
-
                 if (Camera.main == null) return;
 
                 float moveF = Input.GetKey(KeyCode.W) ? 1f : 0f;
@@ -222,7 +210,7 @@ namespace SiksSevenMenu
                     else playerObj.transform.position += motion;
                 }
             }
-            // ---------- SpeedHack (только когда Noclip и Fly выключены) ----------
+            // SpeedHack
             else if (speedHackEnabled && playerObj != null)
             {
                 float moveH = Input.GetAxis("Horizontal");
@@ -243,15 +231,12 @@ namespace SiksSevenMenu
 
         public override void OnGUI()
         {
-            // menu-
             if (menuVisible)
             {
                 float mw = 320f, mh = 560f;
                 float mx = 20f, my = 20f;
 
                 GUI.Box(new Rect(mx, my, mw, mh), "");
-
-                // ver
                 GUIStyle blueStyle = new GUIStyle(GUI.skin.label)
                 {
                     fontSize = 20,
@@ -261,7 +246,6 @@ namespace SiksSevenMenu
 
                 int yOff = 50;
 
-                // Noclip
                 if (GUI.Button(new Rect(mx + 10, my + yOff, mw - 20, 30), $"Noclip: {(noclipEnabled ? "ON" : "OFF")}"))
                 {
                     noclipEnabled = !noclipEnabled;
@@ -270,12 +254,10 @@ namespace SiksSevenMenu
                 }
                 yOff += 40;
 
-                // SpeedHack
                 if (GUI.Button(new Rect(mx + 10, my + yOff, mw - 20, 30), $"SpeedHack: {(speedHackEnabled ? "ON" : "OFF")}"))
                     speedHackEnabled = !speedHackEnabled;
                 yOff += 40;
 
-                // Noclip Speed
                 GUI.Label(new Rect(mx + 10, my + yOff, 100, 20), "Noclip Speed:");
                 noclipInput = GUI.TextField(new Rect(mx + 120, my + yOff, 70, 20), noclipInput);
                 if (GUI.Button(new Rect(mx + 200, my + yOff, 80, 20), "Apply"))
@@ -289,7 +271,6 @@ namespace SiksSevenMenu
                 }
                 yOff += 30;
 
-                // Speed Multiplier
                 GUI.Label(new Rect(mx + 10, my + yOff, 130, 20), "Speed Multiplier:");
                 speedInput = GUI.TextField(new Rect(mx + 150, my + yOff, 70, 20), speedInput);
                 if (GUI.Button(new Rect(mx + 230, my + yOff, 50, 20), "Apply"))
@@ -303,7 +284,6 @@ namespace SiksSevenMenu
                 }
                 yOff += 40;
 
-                // Player Gravity
                 GUI.Label(new Rect(mx + 10, my + yOff, 100, 20), "Player Gravity:");
                 gravityInput = GUI.TextField(new Rect(mx + 120, my + yOff, 70, 20), gravityInput);
                 if (GUI.Button(new Rect(mx + 200, my + yOff, 80, 20), "Apply"))
@@ -318,7 +298,6 @@ namespace SiksSevenMenu
                 }
                 yOff += 40;
 
-                // Jump Height
                 GUI.Label(new Rect(mx + 10, my + yOff, 100, 20), "Jump Height:");
                 jumpInput = GUI.TextField(new Rect(mx + 120, my + yOff, 70, 20), jumpInput);
                 if (GUI.Button(new Rect(mx + 200, my + yOff, 80, 20), "Apply"))
@@ -332,7 +311,6 @@ namespace SiksSevenMenu
                 }
                 yOff += 40;
 
-                // Infinite Stamina
                 bool newStamina = GUI.Toggle(new Rect(mx + 10, my + yOff, 200, 20), infiniteStamina, "Infinite Stamina");
                 if (newStamina != infiniteStamina)
                 {
@@ -345,7 +323,6 @@ namespace SiksSevenMenu
                 }
                 yOff += 30;
 
-                // Infinite Items
                 bool newItems = GUI.Toggle(new Rect(mx + 10, my + yOff, 200, 20), infiniteItems, "Infinite Items");
                 if (newItems != infiniteItems)
                 {
@@ -357,7 +334,6 @@ namespace SiksSevenMenu
                 }
                 yOff += 40;
 
-                // Fly
                 if (GUI.Button(new Rect(mx + 10, my + yOff, mw - 20, 30), $"Fly: {(flyEnabled ? "ON" : "OFF")}"))
                 {
                     flyEnabled = !flyEnabled;
@@ -366,7 +342,6 @@ namespace SiksSevenMenu
                 }
                 yOff += 40;
 
-                // Fly Speed
                 GUI.Label(new Rect(mx + 10, my + yOff, 100, 20), "Fly Speed:");
                 flySpeedInput = GUI.TextField(new Rect(mx + 120, my + yOff, 70, 20), flySpeedInput);
                 if (GUI.Button(new Rect(mx + 200, my + yOff, 80, 20), "Apply"))
@@ -380,7 +355,6 @@ namespace SiksSevenMenu
                 }
             }
 
-            // ---------- дополнительные окна ----------
             if (showItemGiver) itemGiverWindow.OnGUI();
             if (showKickMenu) kickMenu.OnGUI();
         }
@@ -484,9 +458,7 @@ namespace SiksSevenMenu
             }
             Cursor.lockState = originalLockMode;
             Cursor.visible = true;
-
-            // caller
-            Il2Cpp.PhotonNetwork.OnEventCall -= OnPhotonEvent;
+            PhotonNetwork.OnEventCall -= OnPhotonEvent;
         }
     }
 }
