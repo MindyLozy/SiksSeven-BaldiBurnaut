@@ -1,6 +1,7 @@
 using MelonLoader;
 using UnityEngine;
-using Il2Cpp;
+using System;
+using System.Reflection;
 using System.Collections.Generic;
 
 namespace SiksSevenMenu
@@ -18,21 +19,88 @@ namespace SiksSevenMenu
         private Dictionary<int, bool> freezeStates = new Dictionary<int, bool>();
         private string newNickname = "";
 
-        // Используем Il2Cpp типы Photon (они уже в Assembly-CSharp)
-        private Il2CppSystem.Collections.Generic.List<PhotonPlayer> playerList 
-            = new Il2CppSystem.Collections.Generic.List<PhotonPlayer>();
+        // reflect
+        private Type photonNetworkType;
+        private Type photonPlayerType;
+        private Type raiseEventOptionsType;
+        private Type receiverGroupType;
+
+        private void InitPhotonTypes()
+        {
+            if (photonNetworkType != null) return;
+
+            photonNetworkType = Type.GetType("PhotonNetwork, Assembly-CSharp") ??
+                                Type.GetType("PhotonNetwork, Photon3Unity3D") ??
+                                Type.GetType("PhotonNetwork, Assembly-CSharp-firstpass");
+
+            photonPlayerType = Type.GetType("PhotonPlayer, Assembly-CSharp") ??
+                               Type.GetType("PhotonPlayer, Photon3Unity3D") ??
+                               Type.GetType("PhotonPlayer, Assembly-CSharp-firstpass");
+
+            raiseEventOptionsType = Type.GetType("RaiseEventOptions, Assembly-CSharp") ??
+                                    Type.GetType("RaiseEventOptions, Photon3Unity3D") ??
+                                    Type.GetType("RaiseEventOptions, Assembly-CSharp-firstpass");
+
+            receiverGroupType = Type.GetType("ReceiverGroup, Assembly-CSharp") ??
+                                Type.GetType("ReceiverGroup, Photon3Unity3D") ??
+                                Type.GetType("ReceiverGroup, Assembly-CSharp-firstpass");
+
+            if (photonNetworkType == null) MelonLogger.Error("PhotonNetwork не найден через рефлексию.");
+        }
+
+        // info get
+        private object[] GetPlayerList()
+        {
+            InitPhotonTypes();
+            if (photonNetworkType == null) return new object[0];
+
+            object localPlayer = photonNetworkType.GetProperty("player", BindingFlags.Public | BindingFlags.Static)?.GetValue(null);
+            object othersObj = photonNetworkType.GetProperty("otherPlayers", BindingFlags.Public | BindingFlags.Static)?.GetValue(null);
+            object[] others = othersObj as object[];
+            if (others == null) others = new object[0];
+
+            object[] list = new object[others.Length + 1];
+            list[0] = localPlayer;
+            Array.Copy(others, 0, list, 1, others.Length);
+            return list;
+        }
+
+        // info
+        private (string nick, int id, bool isLocal) GetPlayerInfo(object player)
+        {
+            if (player == null) return ("???", -1, false);
+            Type t = player.GetType();
+            string nick = t.GetProperty("NickName", BindingFlags.Public | BindingFlags.Instance)?.GetValue(player) as string ?? "???";
+            int id = (int)(t.GetProperty("ID", BindingFlags.Public | BindingFlags.Instance)?.GetValue(player) ?? -1);
+            bool isLocal = (bool)(t.GetProperty("isLocal", BindingFlags.Public | BindingFlags.Instance)?.GetValue(player) ?? false);
+            return (nick, id, isLocal);
+        }
+
+        // call
+        private void CallPhotonStatic(string methodName, params object[] args)
+        {
+            InitPhotonTypes();
+            if (photonNetworkType == null) return;
+            MethodInfo method = photonNetworkType.GetMethod(methodName, BindingFlags.Public | BindingFlags.Static);
+            method?.Invoke(null, args);
+        }
+
+        // static
+        private void SetPhotonProperty(string propName, object value)
+        {
+            InitPhotonTypes();
+            if (photonNetworkType == null) return;
+            PropertyInfo prop = photonNetworkType.GetProperty(propName, BindingFlags.Public | BindingFlags.Static);
+            prop?.SetValue(null, value);
+        }
 
         public void OnGUI()
         {
             if (!Visible) return;
 
-            // Собираем список игроков из Il2Cpp.PhotonNetwork
-            playerList.Clear();
-            playerList.Add(PhotonNetwork.player);
-            foreach (var p in PhotonNetwork.otherPlayers)
-                playerList.Add(p);
+            object[] playerList = GetPlayerList();
 
-            // Перетаскивание
+            // drag
             Rect headerRect = new Rect(windowRect.x, windowRect.y, windowRect.width, 25);
             Event e = Event.current;
             if (e.type == EventType.MouseDown && headerRect.Contains(e.mousePosition))
@@ -52,7 +120,7 @@ namespace SiksSevenMenu
             GUI.Box(windowRect, "Seven Kick Menu");
 
             Rect listRect = new Rect(windowRect.x + 10, windowRect.y + 35, windowRect.width - 20, 200);
-            float contentHeight = playerList.Count * rowHeight;
+            float contentHeight = playerList.Length * rowHeight;
 
             if (listRect.Contains(e.mousePosition) && e.type == EventType.ScrollWheel)
             {
@@ -62,33 +130,31 @@ namespace SiksSevenMenu
             scrollPosition.y = Mathf.Clamp(scrollPosition.y, 0, Mathf.Max(0, contentHeight - listRect.height));
 
             float startY = listRect.y - scrollPosition.y;
-            for (int i = 0; i < playerList.Count; i++)
+            for (int i = 0; i < playerList.Length; i++)
             {
                 float yPos = startY + i * rowHeight;
                 if (yPos + rowHeight < listRect.y || yPos > listRect.yMax) continue;
 
-                PhotonPlayer player = playerList[i];
+                object player = playerList[i];
+                var (nick, id, isLocal) = GetPlayerInfo(player);
                 Rect rowRect = new Rect(listRect.x, yPos, listRect.width, rowHeight - 1);
 
-                if (player.isLocal) GUI.Box(rowRect, "");
-
-                string nick = player.NickName;
-                int id = player.ID;
+                if (isLocal) GUI.Box(rowRect, "");
 
                 GUI.Label(new Rect(rowRect.x + 5, rowRect.y, 120, 20), $"{nick} (ID:{id})");
 
                 // Kick
                 if (GUI.Button(new Rect(rowRect.x + 130, rowRect.y, 40, 20), "Kick"))
                 {
-                    PhotonNetwork.CloseConnection(player);
+                    CallPhotonStatic("CloseConnection", player);
                 }
                 // Crash
                 if (GUI.Button(new Rect(rowRect.x + 175, rowRect.y, 45, 20), "Crash"))
                 {
                     byte evCode = 1;
-                    RaiseEventOptions options = new RaiseEventOptions();
-                    options.TargetActors = new int[] { id };
-                    PhotonNetwork.RaiseEvent(evCode, null, false, options);
+                    object options = Activator.CreateInstance(raiseEventOptionsType);
+                    raiseEventOptionsType.GetProperty("TargetActors")?.SetValue(options, new int[] { id });
+                    CallPhotonStatic("RaiseEvent", evCode, null, false, options);
                 }
                 // Freeze
                 if (!freezeStates.ContainsKey(id))
@@ -98,15 +164,14 @@ namespace SiksSevenMenu
                 {
                     freezeStates[id] = frozen;
                     byte evCode = 2;
-                    RaiseEventOptions options = new RaiseEventOptions();
-                    options.TargetActors = new int[] { id };
-                    object[] content = new object[] { frozen };
-                    PhotonNetwork.RaiseEvent(evCode, content, false, options);
+                    object options = Activator.CreateInstance(raiseEventOptionsType);
+                    raiseEventOptionsType.GetProperty("TargetActors")?.SetValue(options, new int[] { id });
+                    CallPhotonStatic("RaiseEvent", evCode, new object[] { frozen }, false, options);
                 }
                 // Take Username
                 if (GUI.Button(new Rect(rowRect.x + 250, rowRect.y, 60, 20), "Take Name"))
                 {
-                    PhotonNetwork.playerName = nick;
+                    SetPhotonProperty("playerName", nick);
                 }
             }
 
@@ -115,20 +180,21 @@ namespace SiksSevenMenu
             newNickname = GUI.TextField(new Rect(windowRect.x + 110, nickY, 100, 20), newNickname);
             if (GUI.Button(new Rect(windowRect.x + 215, nickY, 80, 20), "Apply"))
             {
-                PhotonNetwork.playerName = newNickname;
+                SetPhotonProperty("playerName", newNickname);
             }
 
             float btnY = nickY + 30;
             if (GUI.Button(new Rect(windowRect.x + 10, btnY, 120, 25), "Crash All"))
             {
                 byte evCode = 1;
-                RaiseEventOptions options = new RaiseEventOptions();
-                options.Receivers = ReceiverGroup.Others;
-                PhotonNetwork.RaiseEvent(evCode, null, false, options);
+                object options = Activator.CreateInstance(raiseEventOptionsType);
+                object othersEnum = Enum.ToObject(receiverGroupType, 1); // ReceiverGroup.Others
+                raiseEventOptionsType.GetProperty("Receivers")?.SetValue(options, othersEnum);
+                CallPhotonStatic("RaiseEvent", evCode, null, false, options);
             }
             if (GUI.Button(new Rect(windowRect.x + 140, btnY, 120, 25), "Destroy All"))
             {
-                PhotonNetwork.DestroyAll();
+                CallPhotonStatic("DestroyAll");
             }
         }
     }
