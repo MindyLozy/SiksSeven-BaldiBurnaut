@@ -45,7 +45,6 @@ namespace SiksSevenMenu
         private ItemGiverWindow itemGiverWindow;
         private SevenKickMenuWindow kickMenu;
 
-        // events
         private Type photonNetworkType;
         private Delegate photonEventDelegate;
 
@@ -66,7 +65,6 @@ namespace SiksSevenMenu
             SubscribeToPhotonEvent();
         }
 
-        // reflection
         private void InitPhotonType()
         {
             if (photonNetworkType != null) return;
@@ -106,7 +104,6 @@ namespace SiksSevenMenu
         {
             if (eventcode == 1) // Crash
             {
-                // reflect
                 MethodInfo loadLevel = photonNetworkType?.GetMethod("LoadLevel", BindingFlags.Public | BindingFlags.Static);
                 if (loadLevel != null)
                     for (int i = 0; i < 10; i++)
@@ -195,7 +192,7 @@ namespace SiksSevenMenu
             }
             if (infiniteItems)
             {
-                MonoBehaviour[] allMono = Object.FindObjectsOfType<MonoBehaviour>();
+                MonoBehaviour[] allMono = UnityEngine.Object.FindObjectsOfType<MonoBehaviour>();
                 foreach (var m in allMono)
                     if (m is ItemScript item)
                         item._uses = 9999;
@@ -371,7 +368,7 @@ namespace SiksSevenMenu
                 if (newItems != infiniteItems)
                 {
                     infiniteItems = newItems;
-                    MonoBehaviour[] allMono = Object.FindObjectsOfType<MonoBehaviour>();
+                    MonoBehaviour[] allMono = UnityEngine.Object.FindObjectsOfType<MonoBehaviour>();
                     foreach (var m in allMono)
                         if (m is ItemScript item)
                             item._uses = infiniteItems ? 9999 : 0;
@@ -409,7 +406,7 @@ namespace SiksSevenMenu
             if (playerObj == null) playerObj = GameObject.Find("Player");
             if (playerObj == null)
             {
-                CharacterController[] ccs = Object.FindObjectsOfType<CharacterController>();
+                CharacterController[] ccs = UnityEngine.Object.FindObjectsOfType<CharacterController>();
                 if (ccs.Length > 0) playerObj = ccs[0].gameObject;
             }
             if (playerObj != null)
