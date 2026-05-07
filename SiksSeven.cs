@@ -1,7 +1,7 @@
 using MelonLoader;
 using UnityEngine;
 using Il2Cpp;
-using Photon; // Photon PUN 1
+using PhotonNetwork;
 
 [assembly: MelonInfo(typeof(SiksSevenMenu.Main), "SiksSeven Menu", "1.2.1", "LOLWorking")]
 [assembly: MelonGame(null, null)]
